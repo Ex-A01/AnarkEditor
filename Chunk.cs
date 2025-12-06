@@ -148,7 +148,7 @@ namespace EvershadeEditor.LM2 {
         }
     }
 
-    /*public class TextureChunk3DS : ChunkEntry, IChunkExtension
+    public class TextureChunk3DS : ChunkEntry, IChunkExtension
     {
         //HeaderPattern
         uint TextureHeaderMAGIC;
@@ -205,9 +205,7 @@ namespace EvershadeEditor.LM2 {
             using (BinaryReader reader = new BinaryReader(stream))
             {
                 //reader.BaseStream.Seek(0x54, SeekOrigin.Current);
-                //Compression = reader.ReadUInt32();
-                HexView.Wpf.HexViewer hexViewer = new HexView.Wpf.HexViewer();
-                hexViewer.DataSource = reader;
+                //CompressionFormat = reader.ReadUInt32();
                 
             }
         }
@@ -262,7 +260,7 @@ namespace EvershadeEditor.LM2 {
 
             return bitmap;
         }
-    }*/
+    }
 
     public class MaterialChunk : ChunkEntry, IChunkExtension {
         public float Glow;
