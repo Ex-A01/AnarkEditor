@@ -4,10 +4,67 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AnarkBrowser"
+        xmlns:lm2="clr-namespace:EvershadeEditor.LM2"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        <Button Content="Load Data" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Width="113" Click="Button_Click"/>
+        Title="Anark LM2 Editor" Height="600" Width="900">
 
+    <Window.Resources>
+        <local:ChunkTypeConverter x:Key="TypeConverter"/>
+
+        <HierarchicalDataTemplate DataType="{x:Type lm2:ChunkEntry}" ItemsSource="{Binding Children}">
+            <StackPanel Orientation="Horizontal" Margin="2">
+
+                <TextBlock Text="📁" Foreground="Goldenrod" Margin="0,0,5,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasChildren}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <TextBlock Text="📄" Foreground="Gray" Margin="0,0,5,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasChildren}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <TextBlock Text="{Binding Type, Converter={StaticResource TypeConverter}}" FontWeight="SemiBold" Foreground="#333"/>
+
+                <TextBlock Text="{Binding Size, StringFormat=' (Size: {0} b)'}" Foreground="Gray" FontStyle="Italic"/>
+                <TextBlock Text="{Binding Index, StringFormat=' [Idx: {0}]'}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0"/>
+            </StackPanel>
+        </HierarchicalDataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F0F0F0">
+            <Button Content="📂 Load .data" Click="Button_Click" Padding="10,5" Margin="5"/>
+            <TextBlock x:Name="StatusText" Text="Ready." VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray"/>
+        </StackPanel>
+
+        <TreeView x:Name="MainTree" Grid.Row="1" BorderThickness="0" Padding="5">
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="{x:Type TreeViewItem}">
+                    <Setter Property="IsExpanded" Value="False"/>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
     </Grid>
 </Window>

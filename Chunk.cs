@@ -10,15 +10,15 @@ using System.Windows.Media.TextFormatting;
 
 namespace EvershadeEditor.LM2 {
     public class ChunkEntry {
-        public ushort Type;
-        public ushort Flags;
-        public uint Offset;
-        public uint Size;
+        public ushort Type { get; set; }
+        public ushort Flags { get; set; }
+        public uint Offset { get; set; }
+        public uint Size { get; set; }
 
-        public ChunkEntry[]? Children;
-        public byte[]? Data;
+        public ChunkEntry[]? Children { get; set; }
+        public byte[]? Data { get; set; }
 
-        public uint Index;
+        public uint Index { get; set; }
 
         public ushort RawAlignment => (ushort)(Flags >> 1 & 10);
         public byte BlockIndex => (byte)(Flags >> 12 & 3);
@@ -148,7 +148,7 @@ namespace EvershadeEditor.LM2 {
         }
     }
 
-    public class TextureChunk3DS : ChunkEntry, IChunkExtension
+    /*public class TextureChunk3DS : ChunkEntry, IChunkExtension
     {
         //HeaderPattern
         uint TextureHeaderMAGIC;
@@ -262,7 +262,7 @@ namespace EvershadeEditor.LM2 {
 
             return bitmap;
         }
-    }
+    }*/
 
     public class MaterialChunk : ChunkEntry, IChunkExtension {
         public float Glow;
