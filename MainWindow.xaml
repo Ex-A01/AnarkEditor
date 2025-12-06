@@ -4,7 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:AnarkBrowser"
-        xmlns:lm2="clr-namespace:EvershadeEditor.LM2"
+        xmlns:lm2="clr-namespace:EvershadeEditor.LM2" 
+        xmlns:hex="clr-namespace:WpfHexaEditor;assembly=WPFHexaEditor"
         mc:Ignorable="d"
         Title="Anark LM2 Editor" Height="600" Width="900">
 
@@ -12,7 +13,7 @@
         <local:ChunkTypeConverter x:Key="TypeConverter"/>
 
         <HierarchicalDataTemplate DataType="{x:Type lm2:ChunkEntry}" ItemsSource="{Binding Children}">
-            <StackPanel Orientation="Horizontal" Margin="2">
+            <StackPanel Orientation="Horizontal" Margin="2" Background="Transparent" MouseLeftButtonDown="Chunk_MouseLeftButtonDown">
 
                 <TextBlock Text="📁" Foreground="Goldenrod" Margin="0,0,5,0">
                     <TextBlock.Style>
@@ -56,15 +57,46 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F0F0F0">
             <Button Content="📂 Load .data" Click="Button_Click" Padding="10,5" Margin="5"/>
+            <Button Content="💾 Save .data" Click="Save_Click" Padding="10,5" Margin="5"/>
             <TextBlock x:Name="StatusText" Text="Ready." VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray"/>
         </StackPanel>
 
-        <TreeView x:Name="MainTree" Grid.Row="1" BorderThickness="0" Padding="5">
-            <TreeView.ItemContainerStyle>
-                <Style TargetType="{x:Type TreeViewItem}">
-                    <Setter Property="IsExpanded" Value="False"/>
-                </Style>
-            </TreeView.ItemContainerStyle>
-        </TreeView>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="5"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <TreeView x:Name="MainTree" Grid.Column="0" BorderThickness="0" Padding="5" 
+                  SelectedItemChanged="MainTree_SelectedItemChanged">
+                <TreeView.ItemContainerStyle>
+                    <Style TargetType="{x:Type TreeViewItem}">
+                        <Setter Property="IsExpanded" Value="False"/>
+                    </Style>
+                </TreeView.ItemContainerStyle>
+            </TreeView>
+
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="LightGray" Width="5"/>
+
+            <Grid Grid.Column="2" x:Name="EditorPanel" Visibility="Collapsed">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Background="#EEE" Margin="0,0,0,5">
+                    <TextBlock Text="Binary Editor" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
+                    <Button Content="Apply Changes to Memory" Click="ApplyChunkChanges_Click" Margin="10,2"/>
+                </StackPanel>
+
+                <hex:HexEditor x:Name="HexEdit" Grid.Row="1" 
+                           ForegroundSecondColor="Blue"
+                />
+            </Grid>
+
+            <TextBlock x:Name="NoSelectionText" Grid.Column="2" Text="Select a data chunk to edit" 
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#CCC" FontSize="16"/>
+        </Grid>
     </Grid>
 </Window>

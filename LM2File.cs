@@ -241,7 +241,8 @@ namespace EvershadeEditor.LM2 {
             chunk.Data = data;
         }
 
-        private void SetChunkData(ChunkEntry chunk, byte[] data, int parentIndex, bool aligned = false) {
+        //EDIT CHANGED TO PUBLIC
+        public void SetChunkData(ChunkEntry chunk, byte[] data, int parentIndex, bool aligned = false) {
             if (chunk.HasChildren == true) { throw new Exception("Cannot set data of file chunk (Has Children)"); }
             if ((data.Length % 16 != 0) && aligned) { throw new Exception("Data is not 16-byte aligned"); }
             
