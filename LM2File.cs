@@ -138,7 +138,7 @@ namespace EvershadeEditor.LM2 {
                     chunk = new ChunkFileEntry();
                     break;
                 case (ushort)ChunkType.Texture:
-                    chunk = new TextureChunk();
+                    chunk = new TextureChunk3DS();
                     break;
                 default:
                     chunk = new ChunkEntry();
@@ -165,8 +165,8 @@ namespace EvershadeEditor.LM2 {
 
             if (chunk is ChunkFileEntry) {
                 ((ChunkFileEntry)chunk).Read();
-            } else if (chunk is TextureChunk) {
-                ((TextureChunk)chunk).Read();
+            } else if (chunk is TextureChunk3DS) {
+                ((TextureChunk3DS)chunk).Read();
             }
 
             if (file != null) {

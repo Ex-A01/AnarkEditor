@@ -152,20 +152,20 @@ namespace EvershadeEditor.LM2 {
     {
         //HeaderPattern
         uint TextureHeaderMAGIC;
-        uint TextureHash;
-        uint TextureFileSize;
-        uint TextureHash2;
+        public uint TextureHash;
+        public uint TextureFileSize;
+        public uint TextureHash2;
         uint Padding;
         uint truc;
-        ushort Width;
-        ushort Height;
+        public ushort Width;
+        public ushort Height;
         ushort truc2;
-        byte MipLevel;
+        public byte MipLevel;
         byte flag;
         long truc3;
         long truc4;
         uint truc5;
-        uint CompressionFormat;
+        public uint CompressionFormat;
 
         //useless i guess
         public byte TexMipmapLevel
@@ -238,7 +238,7 @@ namespace EvershadeEditor.LM2 {
         {
             string compressText = "Unknown";
 
-            switch (CompressionFormat >> 24)
+            switch (CompressionFormat)
             {
                 case Helper.ETC1_Identifier:
                     compressText = "ETC1";
@@ -254,9 +254,9 @@ namespace EvershadeEditor.LM2 {
         //Creates a bitmap from the ETC1/ETC1A data
         public BitmapSource MakeBitmap()
         {
-            bool isAlpha = (CompressionFormat >> 24 == Helper.ETC1A_Identifier);
+            bool isAlpha = (CompressionFormat == Helper.ETC1A_Identifier);
             BitmapSource bitmap;
-            bitmap = ETC1ImageDecoder.KillzDecoder(Children[1].Data, Width, Height, false);
+            bitmap = ETC1ImageDecoder.KillzDecoder(Children[1].Data, Width, Height, isAlpha);
 
             return bitmap;
         }

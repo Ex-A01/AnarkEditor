@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using WpfHexaEditor.Core;
+using WpfHexaEditor.Core.MethodExtention;
 
 namespace AnarkBrowser
 {
@@ -73,6 +74,18 @@ namespace AnarkBrowser
                 EditorPanel.Visibility = Visibility.Collapsed;
                 NoSelectionText.Visibility = Visibility.Visible;
                 HexEdit.Stream = null;
+            }
+
+            // 2. Gestion du bouton Texture (NOUVEAU)
+            // On active le bouton seulement si c'est une Texture ou un FileEntry contenant une Texture
+            bool isTexture = _selectedChunk is TextureChunk3DS;
+            if (isTexture)
+            {
+                OpenTextureViewer(_selectedChunk as TextureChunk3DS);
+            }
+            else if (_selectedChunk is ChunkFileEntry cfe && cfe.DataChunk is TextureChunk3DS)
+            {
+                OpenTextureViewer(cfe.DataChunk as TextureChunk3DS);
             }
         }
 
@@ -233,6 +246,28 @@ namespace AnarkBrowser
             {
                 MessageBox.Show($"Erreur lors du chargement : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 StatusText.Text = "Error.";
+            }
+        }
+
+        // Méthode helper pour ouvrir la fenêtre proprement
+        private void OpenTextureViewer(TextureChunk3DS texChunk)
+        {
+            try
+            {
+                // Génération de l'image via la méthode de TextureChunk3DS
+                var bitmap = texChunk.MakeBitmap();
+
+                // Création des infos (vérifiez que les propriétés existent bien dans votre TextureChunk3DS)
+                // Note: texChunk.GetCompression() doit exister dans TextureChunk3DS
+                string info = $"Format: {texChunk.GetCompression()} | Mips: {texChunk.MipLevel}";
+
+                // Ouverture de la fenêtre TextureViewer (celle créée à l'étape précédente)
+                var viewer = new TextureViewer(bitmap, info);
+                viewer.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erreur lors du décodage de la texture : {ex.Message}", "Erreur Texture");
             }
         }
     }
