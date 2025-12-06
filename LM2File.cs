@@ -1,9 +1,10 @@
-﻿using System.IO;
-using System.Text;
-using System.Data;
+﻿using System.Data;
+using System.IO;
+using System.IO.Compression;
 using System.Net.Http.Headers;
-using System.Windows.Documents;
+using System.Text;
 using System.Threading.Tasks.Dataflow;
+using System.Windows.Documents;
 
 namespace EvershadeEditor.LM2 {
     public class LM2File {
@@ -175,6 +176,7 @@ namespace EvershadeEditor.LM2 {
 
             return chunk;
         }
+
         private void ParseChunkData(BinaryReader reader, ChunkEntry chunk) {
             DataBlock targetBlock = GetChunkBlock(chunk.BlockIndex);
             long offset = targetBlock.Offset + chunk.Offset;
@@ -381,6 +383,18 @@ namespace EvershadeEditor.LM2 {
 
         public ChunkEntry GetDataChunk(int index) {
             return ((ChunkFileEntry)TextureFiles[index]).DataChunk;
+        }
+
+        private byte[] DecompressBlock(byte[] compressedData, uint expectedSize)
+        {
+            // Astuce Zlib : On saute les 2 premiers octets (Header Zlib) pour utiliser DeflateStream
+            using (var input = new MemoryStream(compressedData, 2, compressedData.Length - 2))
+            using (var deflate = new DeflateStream(input, CompressionMode.Decompress))
+            using (var output = new MemoryStream())
+            {
+                deflate.CopyTo(output);
+                return output.ToArray();
+            }
         }
     }
 
