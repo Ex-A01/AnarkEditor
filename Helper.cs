@@ -28,6 +28,7 @@ namespace EvershadeEditor.LM2 {
 
         public const byte ETC1_Identifier = 0xC;
         public const byte ETC1A_Identifier = 0xD;
+
     }
 
     public enum ChunkType : ushort {

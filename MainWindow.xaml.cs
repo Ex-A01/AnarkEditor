@@ -56,21 +56,17 @@ namespace AnarkBrowser
         {
             _selectedChunk = e.NewValue as ChunkEntry;
 
-            // DEBUG: Voir ce qui est vraiment sélectionné
-            if (_selectedChunk != null)
-            {
-                System.Diagnostics.Debug.WriteLine($"Clic sur: Type={_selectedChunk.Type}, Size={_selectedChunk.Size}, HasData={_selectedChunk.Data != null}");
-            }
-
-            // On n'édite que les chunks qui ont des données et PAS d'enfants
-            // (Les parents sont juste des conteneurs logiques)
             if (_selectedChunk != null && _selectedChunk.Data != null && !_selectedChunk.HasChildren)
             {
                 EditorPanel.Visibility = Visibility.Visible;
                 NoSelectionText.Visibility = Visibility.Collapsed;
 
-                // On charge les données dans l'éditeur via un MemoryStream
-                HexEdit.Stream = new MemoryStream(_selectedChunk.Data);
+                // --- CORRECTION : Créer un MemoryStream pleinement éditable et extensible ---
+                var ms = new MemoryStream();
+                ms.Write(_selectedChunk.Data, 0, _selectedChunk.Data.Length);
+                ms.Position = 0; // Rembobiner au début pour que l'éditeur puisse lire
+
+                HexEdit.Stream = ms;
             }
             else
             {
@@ -80,46 +76,94 @@ namespace AnarkBrowser
             }
         }
 
+        // HELPERS FOR APPLYI?G ELECTED CHUNK CHANGES
+        // Trouve l'index dans _currentFile.Chunks (racine) qui contient le target
+        private int FindRootChunkIndex(ChunkEntry target)
+        {
+            if (_currentFile == null) return -1;
+
+            for (int i = 0; i < _currentFile.Chunks.Count; i++)
+            {
+                ChunkEntry root = _currentFile.Chunks[i];
+
+                // Cas 1: Le chunk sélectionné EST un chunk racine
+                if (root == target) return i;
+
+                // Cas 2: Le chunk est un enfant de ce racine (recherche en profondeur)
+                if (root.HasChildren && IsChildOf(root, target))
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        // Vérifie récursivement si 'parent' contient 'target' dans ses descendants
+        private bool IsChildOf(ChunkEntry parent, ChunkEntry target)
+        {
+            if (parent.Children == null) return false;
+
+            foreach (var child in parent.Children)
+            {
+                if (child == target) return true;
+                // Si l'enfant a lui-même des enfants, on descend encore
+                if (child.HasChildren && IsChildOf(child, target)) return true;
+            }
+            return false;
+        }
+
         // 2. Appliquer les modifications en mémoire (RAM)
         private void ApplyChunkChanges_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentFile == null || _selectedChunk == null)
-            {
-                MessageBox.Show($"{_currentFile == null} || {_selectedChunk == null}");
-                return;
-            }
+            if (_currentFile == null || _selectedChunk == null) return;
 
             try
             {
-                // Récupérer les bytes modifiés depuis l'éditeur
-                byte[] newData = HexEdit.GetAllBytes();
+                // 1. IMPORTANT : On demande à l'éditeur d'écrire son buffer dans le Stream
+                // Si cette méthode n'existe pas dans votre version, essayez HexEdit.CommitChanges() ou HexEdit.ApplyChanges()
+                // Mais SubmitChanges() est le standard pour WpfHexaEditor.
+                HexEdit.SubmitChanges();
 
-                // Utiliser la méthode SetChunkData de LM2File.cs existante
-                // ATTENTION : Cette méthode s'attend à recevoir 'parentIndex' pour décaler les suivants.
-                // Dans votre structure actuelle, 'Index' semble être l'index global ou l'index du fichier.
-                // Il faut trouver l'index du chunk dans la liste plate _currentFile.Chunks
+                byte[] newData;
 
-                int globalIndex = _currentFile.Chunks.IndexOf(_selectedChunk);
+                if (HexEdit.Stream is MemoryStream ms)
+                {
+                    // On récupère les données du stream qui vient d'être mis à jour
+                    newData = ms.ToArray();
+                }
+                else
+                {
+                    // Fallback
+                    newData = HexEdit.GetAllBytes();
+                }
+
+                // --- DEBUG : Vérifiez ici si la valeur est bonne ---
+                // if (newData.Length > 0) MessageBox.Show($"Premier octet : {newData[0]:X2}");
+
+                int globalIndex = FindRootChunkIndex(_selectedChunk);
 
                 if (globalIndex != -1)
                 {
-                    // Cette méthode est PRÉCIEUSE : elle calcule la différence de taille
-                    // et appelle OffsetChunk() pour décaler tout ce qui se trouve après.
-                    // Elle met aussi à jour le Dictionary.
-                    // Note: J'ai dû rendre SetChunkData 'public' dans LM2File.cs pour l'appeler ici.
                     _currentFile.SetChunkData(_selectedChunk, newData, globalIndex);
 
-                    StatusText.Text = $"Updated chunk {globalIndex}. Size diff: {newData.Length - _selectedChunk.Size} bytes.";
+                    StatusText.Text = $"Chunk updated. Size: {newData.Length} bytes.";
 
-                    // Rafraichir l'UI (La taille a changé)
-                    // Une astuce simple pour forcer le rafraichissement visuel si le binding n'est pas observable
-                    MainTree.Items.Refresh();
-                    MessageBox.Show("Data patché avec succès !");
+                    // On recharge propre pour confirmer
+                    var refreshMs = new MemoryStream();
+                    refreshMs.Write(_selectedChunk.Data, 0, _selectedChunk.Data.Length);
+                    refreshMs.Position = 0;
+                    HexEdit.Stream = refreshMs;
+
+                    MessageBox.Show("Changements appliqués !");
+                }
+                else
+                {
+                    MessageBox.Show("Erreur : Impossible de retrouver le chunk racine.");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erreur lors de l'application : {ex.Message}");
+                MessageBox.Show($"Erreur critique : {ex.Message}");
             }
         }
 
@@ -178,7 +222,7 @@ namespace AnarkBrowser
                 StatusText.Text = "Loading...";
 
                 // Utilisation de la classe fournie LM2File
-                var _currentFile = new LM2File(path);
+                _currentFile = new LM2File(path);
 
                 // La propriété 'Chunks' de LM2File contient la liste racine chargée par LoadData()
                 MainTree.ItemsSource = _currentFile.Chunks;
