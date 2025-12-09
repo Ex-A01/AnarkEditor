@@ -58,6 +58,7 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F0F0F0">
             <Button Content="📂 Load .data" Click="Button_Click" Padding="10,5" Margin="5"/>
             <Button Content="💾 Save .data" Click="Save_Click" Padding="10,5" Margin="5"/>
+            <Button Content="📂 Decompress .data" Click="Decomp_Click" Padding="10,5" Margin="5"/>
             <TextBlock x:Name="StatusText" Text="Ready." VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray"/>
         </StackPanel>
 

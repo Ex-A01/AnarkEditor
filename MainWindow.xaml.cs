@@ -1,10 +1,12 @@
-﻿using EvershadeEditor.LM2; // Import du namespace contenant LM2File
+﻿using CompressionTools;
+using EvershadeEditor.LM2; // Import du namespace contenant LM2File
 using Microsoft.Win32;
 using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Shapes;
 using WpfHexaEditor.Core;
 using WpfHexaEditor.Core.MethodExtention;
 
@@ -188,7 +190,7 @@ namespace AnarkBrowser
             var sfd = new SaveFileDialog
             {
                 Filter = "LM2 Data (*.data)|*.data",
-                FileName = Path.GetFileName(_currentFile.DataPath)
+                FileName = System.IO.Path.GetFileName(_currentFile.DataPath)
             };
 
             if (sfd.ShowDialog() == true)
@@ -225,7 +227,7 @@ namespace AnarkBrowser
             {
                 // LM2File cherche automatiquement le .dict correspondant
                 // Vérifions qu'il existe pour donner un message d'erreur clair si besoin
-                string dictPath = Path.ChangeExtension(path, ".dict");
+                string dictPath = System.IO.Path.ChangeExtension(path, ".dict");
                 if (!File.Exists(dictPath))
                 {
                     MessageBox.Show($"Le fichier dictionnaire est manquant :\n{dictPath}\n\nIl est requis pour lire le .data.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -240,7 +242,7 @@ namespace AnarkBrowser
                 // La propriété 'Chunks' de LM2File contient la liste racine chargée par LoadData()
                 MainTree.ItemsSource = _currentFile.Chunks;
 
-                StatusText.Text = $"Loaded: {Path.GetFileName(path)} ({_currentFile.Chunks.Count} root chunks)";
+                StatusText.Text = $"Loaded: {System.IO.Path.GetFileName(path)} ({_currentFile.Chunks.Count} root chunks)";
             }
             catch (Exception ex)
             {
@@ -268,6 +270,30 @@ namespace AnarkBrowser
             catch (Exception ex)
             {
                 MessageBox.Show($"Erreur lors du décodage de la texture : {ex.Message}", "Erreur Texture");
+            }
+        }
+
+        private void Decomp_Click(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "LM2 Data (*.data)|*.data|All Files (*.*)|*.*",
+                Title = "Select the .data file"
+            };
+
+            int[] blocs = [ 0, 2, 3 ];
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+
+                try
+                {
+                    LM2Tools.LM2DataExtractor.RebuildCompositeData(openFileDialog.FileName, System.IO.Path.ChangeExtension(openFileDialog.FileName,"REPACK"), blocs);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Erreur critique : " + ex.Message);
+                }
             }
         }
     }

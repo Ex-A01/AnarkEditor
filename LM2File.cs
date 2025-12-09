@@ -8,7 +8,7 @@ using System.Windows.Documents;
 
 namespace EvershadeEditor.LM2 {
     public class LM2File {
-        private Dictionary Dictionary = new();
+        public Dictionary Dictionary = new();
         public List<ChunkEntry> Chunks = new();
 
         public List<ChunkEntry> Files => Chunks.Where(x => x is ChunkFileEntry).ToList();
@@ -510,6 +510,7 @@ namespace EvershadeEditor.LM2 {
 
             File.WriteAllBytes(filePath, data);
         }
+
     }
 
     public class FileTableReference {
@@ -532,5 +533,29 @@ namespace EvershadeEditor.LM2 {
         public byte UnknownFlag;
 
         public bool IsOffset = false;
+
+        public byte[] DecompressBlock(byte[] compressedData, uint expectedSize)
+        {
+            // Sécurité : Si le tableau est trop petit pour contenir le header Zlib (2 bytes), on renvoie vide
+            if (compressedData.Length < 2) return new byte[0];
+
+            // On saute les 2 premiers octets (Header Zlib 78 XX)
+            using (var input = new MemoryStream(compressedData, 2, compressedData.Length - 2))
+            using (var deflate = new DeflateStream(input, CompressionMode.Decompress))
+            // OPTIMISATION : On initialise le stream de sortie avec la taille attendue
+            using (var output = new MemoryStream((int)expectedSize))
+            {
+                deflate.CopyTo(output);
+
+                // VÉRIFICATION (Optionnel mais recommandé)
+                if (output.Length != expectedSize)
+                {
+                    // On peut logguer un warning ici si la taille ne correspond pas
+                    // Console.WriteLine("Attention : Taille décompressée différente de la taille attendue !");
+                }
+
+                return output.ToArray();
+            }
+        }
     }
 }
