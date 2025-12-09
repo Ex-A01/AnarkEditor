@@ -1,5 +1,4 @@
-﻿using CompressionTools;
-using EvershadeEditor.LM2; // Import du namespace contenant LM2File
+﻿using EvershadeEditor.LM2; // Import du namespace contenant LM2File
 using Microsoft.Win32;
 using System;
 using System.IO;
@@ -288,7 +287,8 @@ namespace AnarkBrowser
 
                 try
                 {
-                    LM2Tools.LM2DataExtractor.RebuildCompositeData(openFileDialog.FileName, System.IO.Path.ChangeExtension(openFileDialog.FileName,"REPACK"), blocs);
+                    //LM2Tools.LM2DataExtractor.RebuildCompositeData(openFileDialog.FileName, System.IO.Path.ChangeExtension(openFileDialog.FileName,"REPACK"), blocs);
+                    EvershadeLibrary.LM2Helper.REPACK(openFileDialog.FileName, openFileDialog.FileName + "REPACK");
                 }
                 catch (Exception ex)
                 {
