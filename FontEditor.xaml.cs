@@ -14,6 +14,7 @@ namespace AnarkBrowser
         private ChunkEntry _chunk;
         private NlgFont _font;
         private LM2File _context; // Référence à l'archive globale pour chercher les textures
+        private int _currentPageIndex = 0;
 
         // Constructeur mis à jour pour accepter LM2File
         public FontEditor(ChunkEntry chunk, LM2File context = null)
@@ -40,7 +41,8 @@ namespace AnarkBrowser
                     // Si on a le contexte global et des hashs de textures
                     if (_context != null && fontChunk.TexturesHash != null && fontChunk.TexturesHash.Count > 0)
                     {
-                        LoadFontTexture(fontChunk);
+                        _currentPageIndex = 0;
+                        LoadPage(_currentPageIndex);
                     }
                     else
                     {
@@ -72,40 +74,63 @@ namespace AnarkBrowser
             }
         }
 
-        private void LoadFontTexture(FontChunk fontChunk)
+        private void LoadPage(int pageIndex)
         {
-            // On cherche parmi tous les fichiers chargés dans l'archive
-            foreach (var file in _context.Files)
+            // Sécurité de base
+            if (!(_chunk is FontChunk fontChunk) || fontChunk.TexturesHash == null || fontChunk.TexturesHash.Count == 0)
             {
-                // On vérifie seulement les ChunkFileEntry (les fichiers nommés/hashés)
-                if (file is ChunkFileEntry fileEntry)
+                TxtPageInfo.Text = "No Texture";
+                return;
+            }
+
+            // 1. Validation de l'index
+            if (pageIndex < 0) pageIndex = 0;
+            if (pageIndex >= fontChunk.TexturesHash.Count) pageIndex = fontChunk.TexturesHash.Count - 1;
+
+            _currentPageIndex = pageIndex;
+
+            // 2. Mise à jour de l'interface (Boutons et Texte)
+            TxtPageInfo.Text = $"Page {_currentPageIndex + 1} / {fontChunk.TexturesHash.Count}";
+            BtnPrev.IsEnabled = _currentPageIndex > 0;
+            BtnNext.IsEnabled = _currentPageIndex < fontChunk.TexturesHash.Count - 1;
+
+            // 3. Nettoyer le canvas (on change d'image, l'ancien rectangle n'est plus valide)
+            OverlayCanvas.Children.Clear();
+
+            // 4. Récupérer le Hash spécifique à cette page
+            uint targetHash = fontChunk.TexturesHash[_currentPageIndex];
+
+            // 5. Chercher la texture correspondante dans le fichier global
+            bool textureFound = false;
+
+            if (_context != null)
+            {
+                foreach (var file in _context.Files)
                 {
-                    // "si l'entier à l'offset 4 == un des hash"
-                    // ChunkFileEntry.FileHash correspond exactement à l'entier à l'offset 4
-                    if (fontChunk.TexturesHash.Contains(fileEntry.FileHash))
+                    if (file is ChunkFileEntry fileEntry && fileEntry.FileHash == targetHash)
                     {
-                        // On a trouvé le fichier texture correspondant !
-                        // Son contenu (DataChunk) devrait être un TextureChunk3DS
                         if (fileEntry.DataChunk is TextureChunk3DS texChunk)
                         {
                             try
                             {
-                                // Génération du bitmap via votre décodeur existant
                                 var bitmap = texChunk.MakeBitmap();
                                 TextureHolder.Source = bitmap;
-
-                                // Si vous avez plusieurs pages, vous pourriez vouloir les gérer ici.
-                                // Pour l'instant, on affiche la première trouvée et on s'arrête.
-                                return;
+                                textureFound = true;
+                                break; // On a trouvé, on sort de la boucle
                             }
                             catch (Exception ex)
                             {
-                                System.Diagnostics.Debug.WriteLine("Erreur chargement texture font: " + ex.Message);
-                                MessageBox.Show("Erreur lors du chargement de la texture de la police.");
+                                System.Diagnostics.Debug.WriteLine("Erreur texture: " + ex.Message);
                             }
                         }
                     }
                 }
+            }
+
+            if (!textureFound)
+            {
+                // Optionnel : Mettre une image vide ou un placeholder si la texture est introuvable
+                TextureHolder.Source = null;
             }
         }
 
@@ -133,6 +158,16 @@ namespace AnarkBrowser
             {
                 MessageBox.Show($"Erreur sauvegarde : {ex.Message}");
             }
+        }
+
+        private void PrevPage_Click(object sender, RoutedEventArgs e)
+        {
+            LoadPage(_currentPageIndex - 1);
+        }
+
+        private void NextPage_Click(object sender, RoutedEventArgs e)
+        {
+            LoadPage(_currentPageIndex + 1);
         }
 
         private void GlythList_SelectionChanged(object sender, SelectionChangedEventArgs e)
