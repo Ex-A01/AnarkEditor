@@ -110,7 +110,7 @@ namespace AnarkBrowser
                     break;*/
                  case FontChunk font:
                     // Ouvrir l'éditeur de polices
-                    var fontEditor = new FontEditor(font);
+                    var fontEditor = new FontEditor(font, _currentFile);
                     fontEditor.Show();
                     break;
 

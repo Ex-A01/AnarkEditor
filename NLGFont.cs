@@ -193,8 +193,6 @@ namespace AnarkBrowser
     {
         public uint CodePoint { get; set; }
 
-        // CORRECTION IMPORTANTE : Renommé de TexWidth à TextureWidth 
-        // pour correspondre au Binding XAML dans FontEditor.xaml
         public int TextureWidth { get; set; }
 
         public int Advance { get; set; }
