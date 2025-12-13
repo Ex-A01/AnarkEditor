@@ -7,15 +7,60 @@
         xmlns:lm2="clr-namespace:EvershadeEditor.LM2" 
         xmlns:hex="clr-namespace:WpfHexaEditor;assembly=WPFHexaEditor"
         mc:Ignorable="d"
-        Title="Anark LM2 Editor" Height="600" Width="900">
-
+        Title="Anark LM2 Editor" Height="600" Width="900"
+        Background="#0D0D12" Foreground="White">
     <Window.Resources>
         <local:ChunkTypeConverter x:Key="TypeConverter"/>
+
+        <SolidColorBrush x:Key="NeonCyan" Color="#00F3FF"/>
+        <SolidColorBrush x:Key="NeonPink" Color="#FF0099"/>
+        <SolidColorBrush x:Key="NeonYellow" Color="#FEEB05"/>
+        <SolidColorBrush x:Key="DarkBg" Color="#1E1E24"/>
+
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource NeonCyan}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource NeonCyan}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#1A00F3FF"/>
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect Color="#00F3FF" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="{StaticResource NeonCyan}"/>
+                                <Setter Property="Foreground" Value="Black"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <HierarchicalDataTemplate DataType="{x:Type lm2:ChunkEntry}" ItemsSource="{Binding Children}">
             <StackPanel Orientation="Horizontal" Margin="2" Background="Transparent" MouseLeftButtonDown="Chunk_MouseLeftButtonDown">
 
-                <TextBlock Text="📁" Foreground="Goldenrod" Margin="0,0,5,0">
+                <TextBlock Text="📁" Foreground="{StaticResource NeonYellow}" Margin="0,0,5,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#FEEB05" BlurRadius="5" ShadowDepth="0" Opacity="0.5"/>
+                    </TextBlock.Effect>
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -28,7 +73,10 @@
                     </TextBlock.Style>
                 </TextBlock>
 
-                <TextBlock Text="📄" Foreground="Gray" Margin="0,0,5,0">
+                <TextBlock Text="📄" Foreground="{StaticResource NeonPink}" Margin="0,0,5,0">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="#FF0099" BlurRadius="5" ShadowDepth="0" Opacity="0.4"/>
+                    </TextBlock.Effect>
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
                             <Setter Property="Visibility" Value="Collapsed"/>
@@ -41,12 +89,54 @@
                     </TextBlock.Style>
                 </TextBlock>
 
-                <TextBlock Text="{Binding Type, Converter={StaticResource TypeConverter}}" FontWeight="SemiBold" Foreground="#333"/>
+                <TextBlock Text="{Binding Type, Converter={StaticResource TypeConverter}}" FontWeight="Bold" Foreground="#EEF"/>
 
-                <TextBlock Text="{Binding Size, StringFormat=' (Size: {0} b)'}" Foreground="Gray" FontStyle="Italic"/>
-                <TextBlock Text="{Binding Index, StringFormat=' [Idx: {0}]'}" Foreground="LightGray" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0"/>
+                <TextBlock Text="{Binding Size, StringFormat=' ({0} b)'}" Foreground="#888" FontStyle="Italic" FontSize="11" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Index, StringFormat=' [#{0}]'}" Foreground="#555" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0"/>
             </StackPanel>
         </HierarchicalDataTemplate>
+
+        <Style TargetType="{x:Type TreeViewItem}">
+            <Setter Property="IsExpanded" Value="False"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#DDD"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TreeViewItem}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition MinWidth="19" Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+
+                            <ToggleButton x:Name="Expander" ClickMode="Press" IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}" Foreground="White"/>
+
+                            <Border x:Name="Bd" Grid.Column="1" Grid.ColumnSpan="2" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="true">
+                                <ContentPresenter x:Name="PART_Header" ContentSource="Header" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                            </Border>
+
+                            <ItemsPresenter x:Name="ItemsHost" Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="1"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="false">
+                                <Setter Property="Visibility" TargetName="ItemsHost" Value="Collapsed"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter TargetName="Bd" Property="Background" Value="#22FF0099"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource NeonPink}"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="1"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -55,12 +145,20 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Background="#F0F0F0">
-            <Button Content="📂 Load .data" Click="Button_Click" Padding="10,5" Margin="5"/>
-            <Button Content="💾 Save .data" Click="Save_Click" Padding="10,5" Margin="5"/>
-            <Button Content="📂 Decompress .data" Click="Decomp_Click" Padding="10,5" Margin="5"/>
-            <TextBlock x:Name="StatusText" Text="Ready." VerticalAlignment="Center" Margin="10,0,0,0" Foreground="Gray"/>
-        </StackPanel>
+        <Border Grid.Row="0" Background="{StaticResource DarkBg}" BorderBrush="#333" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" Margin="5">
+                <Button Content=" 📂 Load  " Click="Button_Click"/>
+                <Button Content=" 💾 Save  " Click="Save_Click"/>
+                <Button Content=" 🔓 Decompress  " Click="Decomp_Click" Foreground="{StaticResource NeonYellow}" BorderBrush="{StaticResource NeonYellow}"/>
+                <Button Content=" 🔒 Compress  " Click="Comp_Click" Foreground="{StaticResource NeonYellow}" BorderBrush="{StaticResource NeonYellow}" Height="23"/>
+
+                <TextBlock x:Name="StatusText" Text="Waiting for action..." VerticalAlignment="Center" Margin="15,0,0,0" Foreground="Gray" FontFamily="Consolas">
+                    <TextBlock.Effect>
+                        <DropShadowEffect Color="White" BlurRadius="2" ShadowDepth="0" Opacity="0.2"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </StackPanel>
+        </Border>
 
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
@@ -69,16 +167,16 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <TreeView x:Name="MainTree" Grid.Column="0" BorderThickness="0" Padding="5" 
-                  SelectedItemChanged="MainTree_SelectedItemChanged">
-                <TreeView.ItemContainerStyle>
-                    <Style TargetType="{x:Type TreeViewItem}">
-                        <Setter Property="IsExpanded" Value="False"/>
-                    </Style>
-                </TreeView.ItemContainerStyle>
+            <TreeView x:Name="MainTree" Grid.Column="0" 
+                      Background="Transparent" 
+                      BorderThickness="0" 
+                      Padding="5" 
+                      SelectedItemChanged="MainTree_SelectedItemChanged" 
+                      VirtualizingStackPanel.IsVirtualizing="True"
+                      VirtualizingStackPanel.VirtualizationMode="Recycling">
             </TreeView>
 
-            <GridSplitter Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="LightGray" Width="5"/>
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#333"/>
 
             <Grid Grid.Column="2" x:Name="EditorPanel" Visibility="Collapsed">
                 <Grid.RowDefinitions>
@@ -86,18 +184,32 @@
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <StackPanel Orientation="Horizontal" Background="#EEE" Margin="0,0,0,5">
-                    <TextBlock Text="Binary Editor" FontWeight="Bold" VerticalAlignment="Center" Margin="5"/>
-                    <Button Content="Apply Changes to Memory" Click="ApplyChunkChanges_Click" Margin="10,2"/>
-                </StackPanel>
+                <Border Background="{StaticResource DarkBg}" BorderBrush="{StaticResource NeonCyan}" BorderThickness="0,0,0,1" Margin="0,0,0,5">
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <TextBlock Text="BINARY EDITOR" FontWeight="Bold" Foreground="{StaticResource NeonCyan}" VerticalAlignment="Center" Margin="5,0,15,0" FontFamily="Consolas">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#00F3FF" BlurRadius="8" ShadowDepth="0" Opacity="0.6"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <Button Content="Apply Changes to RAM" Click="ApplyChunkChanges_Click" Margin="0" Height="25" FontSize="10"/>
+                    </StackPanel>
+                </Border>
 
                 <hex:HexEditor x:Name="HexEdit" Grid.Row="1" 
-                           ForegroundSecondColor="Blue"
+                               Background="#0D0D12"
+                               Foreground="White"
+                               ForegroundSecondColor="{StaticResource NeonPink}"
+                               BorderThickness="0"
                 />
             </Grid>
 
-            <TextBlock x:Name="NoSelectionText" Grid.Column="2" Text="Select a data chunk to edit" 
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="#CCC" FontSize="16"/>
+            <TextBlock x:Name="NoSelectionText" Grid.Column="2" Text="SELECT DATA CHUNK" 
+                       HorizontalAlignment="Center" VerticalAlignment="Center" 
+                       Foreground="#222" FontSize="30" FontWeight="Bold" FontFamily="Consolas">
+                <TextBlock.Effect>
+                    <DropShadowEffect Color="#333" BlurRadius="20" ShadowDepth="0"/>
+                </TextBlock.Effect>
+            </TextBlock>
         </Grid>
     </Grid>
 </Window>

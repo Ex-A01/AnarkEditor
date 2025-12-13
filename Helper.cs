@@ -96,8 +96,8 @@ namespace EvershadeEditor.LM2 {
         MeshMorphIndexBuffer = 0xB00B,
         ModelUnknownSection = 0xB00C,
 
-        FontData = 0x7011,
-        FontTextures = 0x7012,
+        FontData = 0x7011, //NLG font data descriptor
+        FontTextures = 0x7012, //Liste of Hashs to textures
 
         ShaderData = 0xB400,
         UILayoutStart = 0x7000,

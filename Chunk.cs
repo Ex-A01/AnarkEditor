@@ -1,4 +1,5 @@
-﻿using ETC1Decoder;
+﻿using AnarkBrowser;
+using ETC1Decoder;
 using EvershadeEditor.Source.Interface;
 using System;
 using System.IO;
@@ -296,6 +297,54 @@ namespace EvershadeEditor.LM2 {
 
                 writer.Seek(0x28, SeekOrigin.Current);
                 writer.Write(BitConverter.GetBytes(Alpha));
+            }
+        }
+    }
+
+    public class FontChunk : ChunkEntry, IChunkExtension
+    {
+        // L'objet manipulable par l'éditeur
+        public NlgFont FontObject { get; private set; }
+
+        public void Read()
+        {
+            // La logique : Le FontChunk (Parent 0x7010) ne contient rien.
+            // Il doit lire les données de son enfant FontData (0x7011).
+
+            if (Children == null) return;
+
+            // On cherche l'enfant qui contient le texte
+            var dataChild = Array.Find(Children, c => c.Type == (ushort)ChunkType.FontData);
+
+            if (dataChild != null && dataChild.Data != null)
+            {
+                try
+                {
+                    FontObject = NlgFont.FromBytes(dataChild.Data);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("Erreur parsing Font: " + ex.Message);
+                }
+            }
+        }
+
+        public void Write()
+        {
+            // On sérialise l'objet et on l'écrit dans l'enfant
+            if (FontObject == null || Children == null) return;
+
+            var dataChild = Array.Find(Children, c => c.Type == (ushort)ChunkType.FontData);
+
+            if (dataChild != null)
+            {
+                byte[] newData = FontObject.ToBytes();
+
+                // Mise à jour de l'enfant
+                dataChild.Data = newData;
+                dataChild.Size = (uint)newData.Length;
+
+                // Note : On ne touche pas à l'offset ici, c'est LM2File.Save/Repack qui gère ça.
             }
         }
     }

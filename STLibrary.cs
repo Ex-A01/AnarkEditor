@@ -51,7 +51,7 @@ namespace EvershadeLibrary
         }
 
         //Trust me bro this works somehow
-        public static void REPACK(string originalPath, string outputPath)
+        public static void DecompressDataArchive(string originalPath, string outputPath)
         {
             try
             {
@@ -112,6 +112,80 @@ namespace EvershadeLibrary
             catch (Exception ex)
             {
                 MessageBox.Show($"Erreur critique lors de la reconstruction :\n{ex.Message}");
+            }
+        }
+
+        public static void CompressDataArchive(string originalPath, string outputPath)
+        {
+            try
+            {
+                // Chemins (On part du principe que originalPath pointe vers la version décompressée .REdata/.REdict)
+                // Mais pour garder la symétrie avec ton code, disons qu'on prend un dossier ou un nom de base.
+                // Ici je suppose que "originalPath" est le fichier .REdata décompressé
+
+                string srcData = Path.ChangeExtension(originalPath, ".REdata");
+                string srcDict = Path.ChangeExtension(originalPath, ".REdict");
+
+                // Sortie : On remet les extensions originales .data et .dict
+                string dstData = Path.ChangeExtension(outputPath, ".COdata");
+                string dstDict = Path.ChangeExtension(outputPath, ".COdict");
+
+                if (!File.Exists(srcDict) || !File.Exists(srcData))
+                {
+                    MessageBox.Show("Fichiers sources décompressés (.REdata/.REdict) manquants.");
+                    return;
+                }
+
+                // 1. Chargement du dictionnaire (qui est actuellement en mode IsCompressed = 0)
+                var dict = new Dictionary();
+                dict.Load(srcDict);
+
+                if (dict.IsCompressed != 0)
+                {
+                    MessageBox.Show("Le dictionnaire indique que les données sont déjà compressées !");
+                    return;
+                }
+
+                FileStream fsRaw = File.OpenRead(srcData);      // Lecture des données brutes
+                FileStream fsDst = File.Create(dstData);        // Écriture des données compressées
+
+                // 2. Boucle de compression
+                foreach (DataBlock b in dict.Blocks)
+                {
+                    if (b.FileExtension == 0) // On ne compresse que ce qui doit l'être
+                    {
+                        // Lecture de la donnée brute
+                        // Note : Dans le fichier décompressé, la taille EST DecompressedSize
+                        byte[] rawData = new byte[b.DecompressedSize];
+
+                        fsRaw.Seek(b.Offset, SeekOrigin.Begin);
+                        fsRaw.Read(rawData, 0, rawData.Length);
+
+                        // Compression
+                        byte[] compressedData = b.CompressBlock(rawData);
+
+                        // Mise à jour du Block pour le nouveau fichier
+                        // L'offset est la position actuelle dans le fichier de destination (avant écriture)
+                        b.Offset = (uint)fsDst.Position;
+                        b.CompressedSize = (uint)compressedData.Length;
+
+                        // Écriture
+                        fsDst.Write(compressedData, 0, compressedData.Length);
+                    }
+                }
+
+                fsDst.Close();
+                fsRaw.Close();
+
+                // 3. Sauvegarde du dictionnaire avec le flag activé
+                dict.IsCompressed = 1;
+                dict.Save(dstDict);
+
+                MessageBox.Show($"Succès !\nArchive compressée générée dans :\n{dstData}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erreur critique lors de la compression :\n{ex.Message}");
             }
         }
     }

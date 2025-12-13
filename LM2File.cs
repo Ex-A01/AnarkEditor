@@ -141,6 +141,10 @@ namespace EvershadeEditor.LM2 {
                 case (ushort)ChunkType.Texture:
                     chunk = new TextureChunk3DS();
                     break;
+                case (ushort)ChunkType.Font:
+                    chunk = new FontChunk();
+                    break;
+
                 default:
                     chunk = new ChunkEntry();
                     break;
@@ -553,6 +557,57 @@ namespace EvershadeEditor.LM2 {
                     // On peut logguer un warning ici si la taille ne correspond pas
                     // Console.WriteLine("Attention : Taille décompressée différente de la taille attendue !");
                 }
+
+                return output.ToArray();
+            }
+        }
+
+        public static uint Adler32(byte[] data)
+        {
+            const int mod = 65521;
+            uint a = 1, b = 0;
+
+            foreach (byte c in data)
+            {
+                a = (a + c) % mod;
+                b = (b + a) % mod;
+            }
+
+            return (b << 16) | a;
+        }
+
+        public byte[] CompressBlock(byte[] rawData)
+        {
+            using (var output = new MemoryStream())
+            {
+                // 1. Header ZLIB (78 9C)
+                output.WriteByte(0x78);
+                output.WriteByte(0x9C);
+
+                // 2. Compression Deflate
+                // On utilise un MemoryStream intermédiaire pour isoler le flux Deflate 
+                // car DeflateStream ne doit pas fermer notre 'output' principal
+                using (var compressStream = new MemoryStream())
+                {
+                    using (var deflate = new DeflateStream(compressStream, CompressionLevel.SmallestSize, true))
+                    {
+                        deflate.Write(rawData, 0, rawData.Length);
+                        // Le using va fermer le deflate et flusher les données dans compressStream
+                    }
+
+                    // On copie le flux compressé dans la sortie finale
+                    var compressedBytes = compressStream.ToArray();
+                    output.Write(compressedBytes, 0, compressedBytes.Length);
+                }
+
+                // 3. Calcul et écriture du Checksum Adler-32 (4 bytes, Big Endian)
+                uint checksum = Adler32(rawData);
+
+                // Zlib demande du Big Endian (Octets de poids fort en premier)
+                output.WriteByte((byte)((checksum >> 24) & 0xFF));
+                output.WriteByte((byte)((checksum >> 16) & 0xFF));
+                output.WriteByte((byte)((checksum >> 8) & 0xFF));
+                output.WriteByte((byte)(checksum & 0xFF));
 
                 return output.ToArray();
             }

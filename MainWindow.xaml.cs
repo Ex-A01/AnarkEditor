@@ -77,9 +77,9 @@ namespace AnarkBrowser
                 HexEdit.Stream = null;
             }
 
-            // 2. Gestion du bouton Texture (NOUVEAU)
+            // 2. Gestion du bouton Texture (OLD)
             // On active le bouton seulement si c'est une Texture ou un FileEntry contenant une Texture
-            bool isTexture = _selectedChunk is TextureChunk3DS;
+            /*bool isTexture = _selectedChunk is TextureChunk3DS;
             if (isTexture)
             {
                 OpenTextureViewer(_selectedChunk as TextureChunk3DS);
@@ -87,10 +87,42 @@ namespace AnarkBrowser
             else if (_selectedChunk is ChunkFileEntry cfe && cfe.DataChunk is TextureChunk3DS)
             {
                 OpenTextureViewer(cfe.DataChunk as TextureChunk3DS);
+            }*/
+
+            // 1. On "normalise" l'objet : si c'est une Entry, on prend son contenu, sinon on prend l'objet tel quel.
+            var chunkToProcess = _selectedChunk is ChunkFileEntry cfe
+                                 ? cfe.DataChunk
+                                 : _selectedChunk;
+
+            // 2. Maintenant, un switch propre sur le type réel
+            switch (chunkToProcess)
+            {
+                case TextureChunk3DS tex:
+                    OpenTextureViewer(tex);
+                    break;
+
+                /*case MaterialChunk3DS mat: // Exemple d'un autre type
+                    OpenMaterialViewer(mat);
+                    break;
+
+                case MeshChunk3DS mesh:    // Exemple d'un autre type
+                    OpenMeshViewer(mesh);
+                    break;*/
+                 case FontChunk font:
+                    // Ouvrir l'éditeur de polices
+                    var fontEditor = new FontEditor(font);
+                    fontEditor.Show();
+                    break;
+
+                default:
+                    // Optionnel : gérer le cas où le type n'est pas reconnu
+                    MessageBox.Show($"This is a {Enum.GetName(typeof(ChunkType), _selectedChunk.Type)}");
+                    break;
             }
+
         }
 
-        // HELPERS FOR APPLYI?G ELECTED CHUNK CHANGES
+        // HELPERS FOR APPLYING ELECTED CHUNK CHANGES
         // Trouve l'index dans _currentFile.Chunks (racine) qui contient le target
         private int FindRootChunkIndex(ChunkEntry target)
         {
@@ -277,18 +309,35 @@ namespace AnarkBrowser
             var openFileDialog = new OpenFileDialog
             {
                 Filter = "LM2 Data (*.data)|*.data|All Files (*.*)|*.*",
-                Title = "Select the .data file"
+                Title = "Select the compressed .data file"
             };
-
-            int[] blocs = [ 0, 2, 3 ];
 
             if (openFileDialog.ShowDialog() == true)
             {
-
                 try
                 {
-                    //LM2Tools.LM2DataExtractor.RebuildCompositeData(openFileDialog.FileName, System.IO.Path.ChangeExtension(openFileDialog.FileName,"REPACK"), blocs);
-                    EvershadeLibrary.LM2Helper.REPACK(openFileDialog.FileName, openFileDialog.FileName + "REPACK");
+                    EvershadeLibrary.LM2Helper.DecompressDataArchive(openFileDialog.FileName, openFileDialog.FileName + "REPACK");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Erreur critique : " + ex.Message);
+                }
+            }
+        }
+
+        private void Comp_Click(object sender, RoutedEventArgs e)
+        {
+            var openFileDialog = new OpenFileDialog
+            {
+                Filter = "LM2 Data (*.data)|*.data|All Files (*.*)|*.*",
+                Title = "Select raw the .data file"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    EvershadeLibrary.LM2Helper.CompressDataArchive(openFileDialog.FileName, openFileDialog.FileName + "COMPRESSED");
                 }
                 catch (Exception ex)
                 {
