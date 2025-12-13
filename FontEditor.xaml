@@ -42,7 +42,7 @@
             </WrapPanel>
         </GroupBox>
 
-        <DataGrid Grid.Row="2" ItemsSource="{Binding Glyphs}" AutoGenerateColumns="False" CanUserAddRows="True" Margin="0,0,540,0">
+        <DataGrid x:Name="GlythList" Grid.Row="2" ItemsSource="{Binding Glyphs}" AutoGenerateColumns="False" CanUserAddRows="True" Margin="0,0,540,0" SelectionChanged="GlythList_SelectionChanged">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Char" Binding="{Binding Character}" IsReadOnly="True" Width="50"/>
                 <DataGridTextColumn Header="Code (Int)" Binding="{Binding CodePoint}" Width="80"/>
@@ -58,10 +58,17 @@
         BorderBrush="#555" 
         BorderThickness="1">
 
-            <Image x:Name="TextureHolder" 
-           Width="512" Height="512" 
-           Stretch="Uniform"
-           RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+            <Grid Width="512" Height="512">
+
+                <Image x:Name="TextureHolder" 
+               Stretch="Uniform"
+               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+
+                <Canvas x:Name="OverlayCanvas" 
+                Background="Transparent"/>
+
+            </Grid>
+
         </Border>
     </Grid>
 </Window>
