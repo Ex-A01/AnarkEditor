@@ -305,6 +305,7 @@ namespace EvershadeEditor.LM2 {
     {
         // L'objet manipulable par l'éditeur
         public NlgFont FontObject { get; private set; }
+        public List<uint> TexturesHash { get; private set; } //Liste des hash dans un FontTexture child chunk
 
         public void Read()
         {
@@ -325,6 +326,22 @@ namespace EvershadeEditor.LM2 {
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine("Erreur parsing Font: " + ex.Message);
+                }
+            }
+
+            var textureChild = Array.Find(Children, c => c.Type == (ushort)ChunkType.FontTextures);
+            if(textureChild != null && textureChild.Data != null)
+            {
+                TexturesHash = new List<uint>();
+                using (MemoryStream stream = new MemoryStream(textureChild.Data))
+                using (BinaryReader reader = new BinaryReader(stream))
+                {
+                    int textureCount = (int)(textureChild.Size / 4);
+                    for (int i = 0; i < textureCount; i++)
+                    {
+                        uint texHash = reader.ReadUInt32();
+                        TexturesHash.Add(texHash);
+                    }
                 }
             }
         }

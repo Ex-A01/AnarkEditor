@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Globalization;
 
 namespace AnarkBrowser
 {
@@ -32,41 +33,58 @@ namespace AnarkBrowser
         public static NlgFont FromBytes(byte[] data)
         {
             var font = new NlgFont();
-            // Utiliser UTF8 est plus sûr, mais Default fonctionne souvent si c'est de l'ASCII
+            // Utiliser UTF8 pour récupérer le texte
             string text = Encoding.UTF8.GetString(data);
 
-            // Séparation par blocs ".."
-            var parts = text.Split(new[] { ".." }, StringSplitOptions.RemoveEmptyEntries);
+            // Normalisation : Remplacer les ".." par des sauts de ligne pour un traitement ligne par ligne
+            string normalizedText = text.Replace("..", "\n");
 
-            foreach (var part in parts)
+            // Découpage propre
+            var lines = normalizedText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var line in lines)
             {
-                string t = part.Trim();
+                string t = line.Trim();
                 if (string.IsNullOrEmpty(t) || t == "END") continue;
 
-                // CORRECTION MAJEURE : On découpe en ignorant les espaces vides/multiples/tabs
-                var tokens = t.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
+                // Tokenization par espaces/tabs
+                var tokens = t.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
                 if (tokens.Length == 0) continue;
 
                 string key = tokens[0];
 
                 if (key == "Version" || t.StartsWith("NLG Font"))
                 {
-                    // Entête
+                    // Header (Optionnel)
                 }
                 else if (key == "Font")
                 {
-                    // Format: Font "Nom" Taille color R G B
-                    if (tokens.Length >= 2) font.FontName = tokens[1].Replace("\"", "");
+                    // Recherche du mot clé "color" pour se repérer, car le nom de la police peut contenir des espaces
+                    int colorIndex = Array.IndexOf(tokens, "color");
 
-                    if (tokens.Length >= 3 && int.TryParse(tokens[2], out int fs))
-                        font.FontSize = fs;
-
-                    if (tokens.Length >= 7 && tokens[3] == "color")
+                    if (colorIndex > 1)
                     {
-                        if (byte.TryParse(tokens[4], out byte r)) font.R = r;
-                        if (byte.TryParse(tokens[5], out byte g)) font.G = g;
-                        if (byte.TryParse(tokens[6], out byte b)) font.B = b;
+                        // Taille = juste avant "color"
+                        if (int.TryParse(tokens[colorIndex - 1], out int fs))
+                            font.FontSize = fs;
+
+                        // Couleurs = juste après "color"
+                        if (tokens.Length > colorIndex + 3)
+                        {
+                            byte.TryParse(tokens[colorIndex + 1], out byte r);
+                            byte.TryParse(tokens[colorIndex + 2], out byte g);
+                            byte.TryParse(tokens[colorIndex + 3], out byte b);
+                            font.R = r; font.G = g; font.B = b;
+                        }
+
+                        // Nom = Tout ce qui est entre l'index 1 et (colorIndex - 1)
+                        StringBuilder nameBuilder = new StringBuilder();
+                        for (int i = 1; i < colorIndex - 1; i++)
+                        {
+                            if (nameBuilder.Length > 0) nameBuilder.Append(" ");
+                            nameBuilder.Append(tokens[i]);
+                        }
+                        font.FontName = nameBuilder.ToString().Replace("\"", "");
                     }
                 }
                 else if (key == "PageSize")
@@ -92,27 +110,33 @@ namespace AnarkBrowser
                 else if (key == "Glyph")
                 {
                     // Format: Glyph [ID] Width [A] [B] [C]
-                    // Comme on a retiré les espaces vides, les index sont stables :
-                    // tokens[0]="Glyph", tokens[1]=ID, tokens[2]="Width", etc.
+                    // On cherche "Width" pour savoir où commencent les chiffres
+                    int widthIndex = Array.IndexOf(tokens, "Width");
 
-                    if (tokens.Length >= 6)
+                    if (widthIndex > 1 && tokens.Length > widthIndex + 3)
                     {
                         var g = new NlgGlyph();
 
-                        // Parsing de l'ID (ex: "32" ou "!")
+                        // CORRECTION ID : Gérer le cas où l'ID est un chiffre (ex: "0") qui doit être lu comme char '0' (48)
                         string idStr = tokens[1];
-                        if (int.TryParse(idStr, out int idVal))
-                            g.CodePoint = (uint)idVal;
-                        else if (idStr.Length > 0)
-                            g.CodePoint = (uint)idStr[0];
 
-                        // Parsing des largeurs
-                        if (tokens[2] == "Width")
+                        // Si la chaine fait 1 caractère (ex: "!", "A", "0"), c'est toujours un char
+                        if (idStr.Length == 1)
                         {
-                            if (int.TryParse(tokens[3], out int tw)) g.TexWidth = tw;
-                            if (int.TryParse(tokens[4], out int adv)) g.Advance = adv;
-                            if (int.TryParse(tokens[5], out int off)) g.Offset = off;
+                            g.CodePoint = (uint)idStr[0];
                         }
+                        // Sinon (ex: "32", "161"), c'est un entier brut
+                        else if (int.TryParse(idStr, out int idVal))
+                        {
+                            g.CodePoint = (uint)idVal;
+                        }
+
+                        // Lecture des propriétés
+                        // CORRECTION : On remplit TextureWidth pour correspondre au XAML
+                        if (int.TryParse(tokens[widthIndex + 1], out int tw)) g.TextureWidth = tw;
+                        if (int.TryParse(tokens[widthIndex + 2], out int adv)) g.Advance = adv;
+                        if (int.TryParse(tokens[widthIndex + 3], out int off)) g.Offset = off;
+
                         font.Glyphs.Add(g);
                     }
                 }
@@ -132,13 +156,13 @@ namespace AnarkBrowser
 
             foreach (var g in Glyphs)
             {
-                // Si c'est un caractère simple (ex: A, !, ?) on l'écrit tel quel pour la lisibilité
-                // Sinon on écrit son code (ex: 32 pour Espace)
+                // Logique inverse : Si c'est un caractère imprimable simple, on l'écrit en char, sinon en int
                 string idStr = (g.CodePoint > 32 && g.CodePoint < 127 && !char.IsDigit((char)g.CodePoint))
                     ? ((char)g.CodePoint).ToString()
                     : g.CodePoint.ToString();
 
-                sb.Append($"Glyph {idStr} Width {g.TexWidth} {g.Advance} {g.Offset}..");
+                // Notez l'utilisation de TextureWidth ici aussi
+                sb.Append($"Glyph {idStr} Width {g.TextureWidth} {g.Advance} {g.Offset}..");
             }
 
             sb.Append("END..");
@@ -168,11 +192,15 @@ namespace AnarkBrowser
     public class NlgGlyph
     {
         public uint CodePoint { get; set; }
-        public int TexWidth { get; set; }
+
+        // CORRECTION IMPORTANTE : Renommé de TexWidth à TextureWidth 
+        // pour correspondre au Binding XAML dans FontEditor.xaml
+        public int TextureWidth { get; set; }
+
         public int Advance { get; set; }
         public int Offset { get; set; }
 
-        public string CharDisplay
+        public string Character
         {
             get
             {

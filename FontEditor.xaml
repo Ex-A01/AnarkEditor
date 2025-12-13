@@ -1,7 +1,7 @@
 ﻿<Window x:Class="AnarkBrowser.FontEditor"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="NLG Font Editor" Height="600" Width="800">
+        Title="NLG Font Editor" Height="600" Width="1150">
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -14,7 +14,7 @@
         </StackPanel>
 
         <GroupBox Grid.Row="1" Header="Global Settings" Margin="0,0,0,10">
-            <WrapPanel Orientation="Horizontal">
+            <WrapPanel Orientation="Horizontal" Margin="0,0,489,0">
                 <StackPanel Margin="5">
                     <TextBlock Text="Font Name"/>
                     <TextBox Text="{Binding FontName}" Width="150"/>
@@ -42,7 +42,7 @@
             </WrapPanel>
         </GroupBox>
 
-        <DataGrid Grid.Row="2" ItemsSource="{Binding Glyphs}" AutoGenerateColumns="False" CanUserAddRows="True">
+        <DataGrid Grid.Row="2" ItemsSource="{Binding Glyphs}" AutoGenerateColumns="False" CanUserAddRows="True" Margin="0,0,540,0">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Char" Binding="{Binding Character}" IsReadOnly="True" Width="50"/>
                 <DataGridTextColumn Header="Code (Int)" Binding="{Binding CodePoint}" Width="80"/>
@@ -51,5 +51,7 @@
                 <DataGridTextColumn Header="Offset (C)" Binding="{Binding Offset}" Width="80"/>
             </DataGrid.Columns>
         </DataGrid>
+        
+        <Image x:Name="TextureHolder" HorizontalAlignment="Left" Height="512" Margin="605,0,0,0" Grid.Row="2" VerticalAlignment="Top" Width="512"/>
     </Grid>
 </Window>
