@@ -123,8 +123,8 @@ namespace EvershadeLibrary
                 // Mais pour garder la symétrie avec ton code, disons qu'on prend un dossier ou un nom de base.
                 // Ici je suppose que "originalPath" est le fichier .REdata décompressé
 
-                string srcData = Path.ChangeExtension(originalPath, ".REdata");
-                string srcDict = Path.ChangeExtension(originalPath, ".REdict");
+                string srcData = Path.ChangeExtension(originalPath, ".data");
+                string srcDict = Path.ChangeExtension(originalPath, ".dict");
 
                 // Sortie : On remet les extensions originales .data et .dict
                 string dstData = Path.ChangeExtension(outputPath, ".COdata");

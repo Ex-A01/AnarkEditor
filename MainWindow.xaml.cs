@@ -77,18 +77,6 @@ namespace AnarkBrowser
                 HexEdit.Stream = null;
             }
 
-            // 2. Gestion du bouton Texture (OLD)
-            // On active le bouton seulement si c'est une Texture ou un FileEntry contenant une Texture
-            /*bool isTexture = _selectedChunk is TextureChunk3DS;
-            if (isTexture)
-            {
-                OpenTextureViewer(_selectedChunk as TextureChunk3DS);
-            }
-            else if (_selectedChunk is ChunkFileEntry cfe && cfe.DataChunk is TextureChunk3DS)
-            {
-                OpenTextureViewer(cfe.DataChunk as TextureChunk3DS);
-            }*/
-
             // 1. On "normalise" l'objet : si c'est une Entry, on prend son contenu, sinon on prend l'objet tel quel.
             var chunkToProcess = _selectedChunk is ChunkFileEntry cfe
                                  ? cfe.DataChunk

@@ -219,37 +219,47 @@ namespace AnarkBrowser
         /// </summary>
         private Rect? CalculateGlyphRect(NlgGlyph targetGlyph)
         {
-            // On part du coin haut-gauche
-            double currentX = 0;
+            // 1. Initialisation
+            // IL (11) est le décalage initial pour la PREMIÈRE ligne uniquement.
+            double currentX = _font.IL;
             double currentY = 0;
 
-            // Largeur totale de l'image (PageSize)
             double textureWidth = _font.PageSize;
 
-            // Hauteur d'une ligne de glyphes (souvent Height ou LineHeight selon le format)
-            // Sécurité : si Height est 0, on évite la boucle infinie ou division par 0
-            double rowHeight = _font.Height > 0 ? _font.Height : 20;
+            // Hauteur de ligne (RenderHeight semble être la hauteur totale, Height la hauteur de ligne)
+            // D'après le header : Height 23, RenderHeight 34. Essayons Height pour le saut de ligne.
+            double rowHeight = _font.Height > 0 ? _font.Height : 23;
 
             foreach (var glyph in _font.Glyphs)
             {
-                // Vérification de dépassement de ligne (Wrap)
-                // Si la position actuelle + la largeur du glyphe dépasse la largeur de l'image...
-                if (currentX + glyph.TextureWidth > textureWidth)
+                // --- FILTRE CRITIQUE ---
+                // L'espace (32) n'est jamais dessiné sur la texture, on le saute.
+                if (glyph.CodePoint == 32) continue;
+
+                // La place réelle occupée par un glyphe dans la texture est :
+                // Son décalage vide (Offset/C) + Ses pixels (Width/A) + L'espace global (Spacing)
+                double textureSlotWidth = glyph.Offset + glyph.TextureWidth + _font.CharSpacing;
+
+                // --- GESTION DU RETOUR À LA LIGNE ---
+                // Si le glyphe dépasse la largeur de l'image
+                if (currentX + textureSlotWidth > textureWidth)
                 {
-                    // ... on passe à la ligne suivante
-                    currentX = 0;
+                    currentX = 0; // Retour à 0 (ou 1 pour la marge de sécurité)
                     currentY += rowHeight;
                 }
 
-                // Est-ce le glyphe que l'on cherche ?
+                // --- EST-CE LE GLYPHE RECHERCHÉ ? ---
                 if (glyph == targetGlyph)
                 {
-                    // On retourne le rectangle calculé
-                    return new Rect(currentX, currentY, glyph.TextureWidth, rowHeight);
+                    // Position X exacte : Le dessin commence APRÈS l'Offset
+                    double drawX = currentX + glyph.Offset;
+
+                    return new Rect(drawX, currentY, glyph.TextureWidth, rowHeight);
                 }
 
-                // Avancer le curseur X pour le prochain glyphe
-                currentX += glyph.TextureWidth;
+                // --- AVANCEMENT ---
+                // On avance du bloc complet (Offset + Width + Spacing)
+                currentX += textureSlotWidth;
             }
 
             return null; // Glyphe non trouvé
