@@ -15,6 +15,7 @@
         <SolidColorBrush x:Key="NeonCyan" Color="#00F3FF"/>
         <SolidColorBrush x:Key="NeonPink" Color="#FF0099"/>
         <SolidColorBrush x:Key="NeonYellow" Color="#FEEB05"/>
+        <SolidColorBrush x:Key="NeonGreen" Color="#39FF14"/>
         <SolidColorBrush x:Key="DarkBg" Color="#1E1E24"/>
 
         <Style TargetType="Button">
@@ -90,7 +91,7 @@
                 </TextBlock>
 
                 <TextBlock Text="{Binding Type, Converter={StaticResource TypeConverter}}" FontWeight="Bold" Foreground="#EEF"/>
-
+                <TextBlock Text="{Binding DisplayName}" FontSize="8" FontWeight="Bold" Foreground="#EEF"/>
                 <TextBlock Text="{Binding Size, StringFormat=' ({0} b)'}" Foreground="#888" FontStyle="Italic" FontSize="11" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding Index, StringFormat=' [#{0}]'}" Foreground="#555" FontSize="10" VerticalAlignment="Center" Margin="5,0,0,0"/>
             </StackPanel>
@@ -151,6 +152,7 @@
                 <Button Content=" 💾 Save  " Click="Save_Click"/>
                 <Button Content=" 🔓 Decompress  " Click="Decomp_Click" Foreground="{StaticResource NeonYellow}" BorderBrush="{StaticResource NeonYellow}"/>
                 <Button Content=" 🔒 Compress  " Click="Comp_Click" Foreground="{StaticResource NeonYellow}" BorderBrush="{StaticResource NeonYellow}" Height="23"/>
+                <Button Content=" 📶 Test Sort  " Click="ApplySort" Foreground="{StaticResource NeonGreen}" BorderBrush="{StaticResource NeonGreen}" Height="23"/>
 
                 <TextBlock x:Name="StatusText" Text="Waiting for action..." VerticalAlignment="Center" Margin="15,0,0,0" Foreground="Gray" FontFamily="Consolas">
                     <TextBlock.Effect>

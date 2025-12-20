@@ -1,4 +1,8 @@
 ﻿using System;
+using System.Collections;
+using System.Globalization;
+using System.IO;
+using System.Windows;
 
 namespace EvershadeEditor.LM2 {
     public static class Helper {
@@ -29,6 +33,92 @@ namespace EvershadeEditor.LM2 {
         public const byte ETC1_Identifier = 0xC;
         public const byte ETC1A_Identifier = 0xD;
 
+        public static Dictionary<uint, string> Hashes = new Dictionary<uint, string>();
+
+        public static void LoadFullHashTxt(string path)
+        {
+            if (!File.Exists(path))
+            {
+                MessageBox.Show("Fichier non trouvé : " + path);
+                return;
+            }
+
+            foreach (string line in File.ReadAllLines(path))
+            {
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                int separatorIndex = line.IndexOf(':');
+                if (separatorIndex == -1) continue;
+
+                string hashPart = line.Substring(0, separatorIndex).Trim();
+                string namePart = line.Substring(separatorIndex + 1).Trim();
+
+                uint hash;
+                bool success = false;
+
+                // AUTO-DETECTION DU FORMAT
+                if (hashPart.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Format Hexa (ex: 0xFFFFFFFF)
+                    success = uint.TryParse(hashPart.Substring(2), NumberStyles.HexNumber, null, out hash);
+                }
+                else if (System.Text.RegularExpressions.Regex.IsMatch(hashPart, @"^[a-fA-F0-9]{8}$"))
+                {
+                    // Format Hexa sans préfixe (8 caractères hexa)
+                    success = uint.TryParse(hashPart, NumberStyles.HexNumber, null, out hash);
+                }
+                else
+                {
+                    // Format Décimal (votre liste actuelle)
+                    success = uint.TryParse(hashPart, out hash);
+                }
+
+                if (success)
+                {
+                    // UTILISER l'indexeur [] au lieu de .Add() 
+                    // pour écraser les anciennes valeurs sans faire planter le logiciel
+                    Hashes[hash] = namePart;
+                }
+            }
+        }
+
+        public static string GetHashName(uint hash)
+        {
+            if (Hashes.TryGetValue(hash, out string name))
+            {
+                return name;
+            }
+            return $" "; //(0x{hash:X8})
+        }
+
+    }
+
+    public class ChunkComparer : IComparer
+    {
+        public int Compare(object x, object y)
+        {
+            var a = x as ChunkEntry;
+            var b = y as ChunkEntry;
+            if (a == null || b == null) return 0;
+
+            // 1. PRIORITÉ : "Script" en premier
+            // ChunkType.Script vaut 0x5000 dans votre Helper.cs
+            bool aIsScript = a.Type == (ushort)ChunkType.Script;
+            bool bIsScript = b.Type == (ushort)ChunkType.Script;
+
+            if (aIsScript && !bIsScript) return -1; // 'a' passe devant
+            if (!aIsScript && bIsScript) return 1;  // 'b' passe devant
+
+            // 2. TRI PAR TYPE (Alphabétique)
+            string nameA = Enum.GetName(typeof(ChunkType), a.Type) ?? a.Type.ToString("X4");
+            string nameB = Enum.GetName(typeof(ChunkType), b.Type) ?? b.Type.ToString("X4");
+            int typeComp = string.Compare(nameA, nameB);
+
+            if (typeComp != 0) return typeComp;
+
+            // 3. TRI PAR TAILLE (Plus gros en premier)
+            return b.Size.CompareTo(a.Size);
+        }
     }
 
     public enum ChunkType : ushort {

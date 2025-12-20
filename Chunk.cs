@@ -16,6 +16,8 @@ namespace EvershadeEditor.LM2 {
         public uint Offset { get; set; }
         public uint Size { get; set; }
 
+        public string DisplayName { get; set; } = "";
+
         public ChunkEntry[]? Children { get; set; }
         public byte[]? Data { get; set; }
 
@@ -50,6 +52,7 @@ namespace EvershadeEditor.LM2 {
             using (BinaryReader reader = new BinaryReader(stream)) {
                 FileType = reader.ReadUInt32();
                 FileHash = reader.ReadUInt32();
+                DisplayName = " " + Helper.GetHashName(FileHash);
             }   
         }
     }

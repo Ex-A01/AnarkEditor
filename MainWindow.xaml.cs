@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using WpfHexaEditor.Core;
@@ -19,6 +20,7 @@ namespace AnarkBrowser
         public MainWindow()
         {
             InitializeComponent();
+            Helper.LoadFullHashTxt(AppContext.BaseDirectory + "fullHash.txt");
         }
 
         private void Chunk_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -331,6 +333,23 @@ namespace AnarkBrowser
                 {
                     Console.WriteLine("Erreur critique : " + ex.Message);
                 }
+            }
+        }
+
+        private void ApplySort(object sender, RoutedEventArgs e)
+        {
+            if (MainTree.ItemsSource == null) return;
+
+            // Récupérer la vue associée à la liste actuelle
+            var view = CollectionViewSource.GetDefaultView(MainTree.ItemsSource) as ListCollectionView;
+
+            if (view != null)
+            {
+                // Appliquer le comparateur
+                view.CustomSort = new ChunkComparer();
+
+                // Forcer le rafraîchissement visuel
+                view.Refresh();
             }
         }
     }
