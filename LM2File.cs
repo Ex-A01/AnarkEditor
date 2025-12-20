@@ -145,6 +145,10 @@ namespace EvershadeEditor.LM2 {
                     chunk = new FontChunk();
                     break;
 
+                case (ushort)ChunkType.Script:
+                    chunk = new ScriptChunk();
+                    break;
+
                 default:
                     chunk = new ChunkEntry();
                     break;
@@ -172,6 +176,10 @@ namespace EvershadeEditor.LM2 {
                 ((ChunkFileEntry)chunk).Read();
             } else if (chunk is TextureChunk3DS) {
                 ((TextureChunk3DS)chunk).Read();
+            }
+            else if (chunk is ScriptChunk)
+            {
+                ((ScriptChunk)chunk).Read();
             }
 
             if (file != null) {

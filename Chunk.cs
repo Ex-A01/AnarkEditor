@@ -368,4 +368,233 @@ namespace EvershadeEditor.LM2 {
             }
         }
     }
+
+    // Ajoutez ceci dans Chunk.cs, dans le namespace EvershadeEditor.LM2
+    public class ScriptChunk : ChunkEntry, IChunkExtension
+    {
+        // Structures de données internes pour le Script
+        public class Script
+        {
+            public uint Hash { get; set; }
+            public uint StringBufferSize { get; set; }
+            public List<Function> Functions { get; set; } = new List<Function>();
+        }
+
+        public class Function
+        {
+            public string Name { get; set; }
+            public uint Hash { get; set; }
+            public uint CodeStartIndex { get; set; }
+            public uint Flag { get; set; }
+            public List<Operation> Operations { get; set; } = new List<Operation>();
+            public Dictionary<uint, CodeVariable> Variables { get; set; } = new Dictionary<uint, CodeVariable>();
+            public string DecompiledCode { get; set; }
+        }
+
+        public class Operation
+        {
+            public ushort RawCode;
+            public uint OpCode;
+            public uint RegValue;
+            public uint RegValueEx;
+            public object DataRead;
+        }
+
+        public class CodeVariable
+        {
+            public uint Offset;
+            public object Data;
+            public string TypeName => Data?.GetType().Name ?? "Unknown";
+        }
+
+        // Propriétés du Chunk
+        public List<Script> Scripts { get; private set; } = new List<Script>();
+        public List<string> Strings { get; private set; } = new List<string>();
+        public uint HashType { get; private set; }
+
+        public void Read()
+        {
+            if (Children == null) return;
+
+            // 1. Récupération des chunks enfants
+            var headerChunk = Array.Find(Children, c => c.Type == (ushort)ChunkType.ScriptHeader);
+            var funcTableChunks = Children.Where(c => c.Type == (ushort)ChunkType.ScriptFunctionTable).ToList();
+            var dataChunk = Array.Find(Children, c => c.Type == (ushort)ChunkType.ScriptData);
+
+            if (headerChunk == null || dataChunk == null) return;
+
+            Scripts.Clear();
+            Strings.Clear();
+
+            // 2. Parsing du Header
+            using (MemoryStream stream = new MemoryStream(headerChunk.Data))
+            using (BinaryReader reader = new BinaryReader(stream))
+            {
+                int numScripts = headerChunk.Data.Length / 8;
+                for (int i = 0; i < numScripts; i++)
+                {
+                    Scripts.Add(new Script
+                    {
+                        Hash = reader.ReadUInt32(),
+                        StringBufferSize = reader.ReadUInt32()
+                    });
+                }
+            }
+
+            // 3. Parsing des Tables de Fonctions
+            for (int i = 0; i < Scripts.Count; i++)
+            {
+                if (i >= funcTableChunks.Count) break;
+
+                using (MemoryStream stream = new MemoryStream(funcTableChunks[i].Data))
+                using (BinaryReader reader = new BinaryReader(stream))
+                {
+                    int numFuncs = funcTableChunks[i].Data.Length / 12;
+                    for (int j = 0; j < numFuncs; j++)
+                    {
+                        var func = new Function
+                        {
+                            Hash = reader.ReadUInt32(),
+                            CodeStartIndex = reader.ReadUInt32(),
+                            Flag = reader.ReadUInt32()
+                        };
+                        func.Name = Helper.GetHashName(func.Hash);
+                        if (string.IsNullOrWhiteSpace(func.Name)) func.Name = $"Func_{func.Hash:X8}";
+                        Scripts[i].Functions.Add(func);
+                    }
+                }
+            }
+
+            // 4. Parsing Data & Code
+            ParseScriptData(dataChunk.Data);
+        }
+
+        public void Write()
+        {
+            // TODO: Implémenter la reconstruction du ScriptData (Repacking)
+            // C'est complexe car il faut recalculer tous les offsets si la taille change.
+            // Pour l'instant, on peut imaginer mettre à jour uniquement les valeurs des variables in-place.
+        }
+
+        private void ParseScriptData(byte[] data)
+        {
+            using (MemoryStream stream = new MemoryStream(data))
+            using (BinaryReader reader = new BinaryReader(stream))
+            {
+                HashType = reader.ReadUInt32();
+                uint codeSize = reader.ReadUInt32();
+                uint dataSize = reader.ReadUInt32();
+                ushort stringTableSize = reader.ReadUInt16();
+                ushort unk = reader.ReadUInt16();
+
+                long dataStartPos = 16; // Header size
+                long codeStartPos = dataStartPos + dataSize;
+                long stringStartPos = codeStartPos + codeSize;
+
+                // A. Charger les Strings
+                if (stringStartPos < stream.Length)
+                {
+                    reader.BaseStream.Seek(stringStartPos, SeekOrigin.Begin);
+                    while (reader.BaseStream.Position < stream.Length && reader.BaseStream.Position < stringStartPos + stringTableSize)
+                    {
+                        try { Strings.Add(reader.ReadZeroTerminatedString()); } catch { break; }
+                    }
+                }
+
+                // B. Analyser les fonctions
+                foreach (var script in Scripts)
+                {
+                    foreach (var func in script.Functions)
+                    {
+                        ParseFunction(reader, func, codeStartPos, dataStartPos, dataSize, stringStartPos);
+                    }
+                }
+            }
+        }
+
+        private void ParseFunction(BinaryReader reader, Function func, long codeBase, long dataBase, uint maxDataSize, long strBase)
+        {
+            reader.BaseStream.Seek(codeBase + func.CodeStartIndex * 2, SeekOrigin.Begin);
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendLine($"// Function: {func.Name} (Flag: {func.Flag:X})");
+            sb.AppendLine("{");
+
+            List<dynamic> stack = new List<dynamic>();
+            uint dataPointer = 0;
+
+            while (true)
+            {
+                if (reader.BaseStream.Position >= reader.BaseStream.Length) break;
+
+                ushort raw = reader.ReadUInt16();
+                uint val = (uint)(raw & 0xffff03ff);
+                uint opCode = (uint)(raw >> 10);
+
+                var op = new Operation { RawCode = raw, OpCode = opCode, RegValue = val };
+                func.Operations.Add(op);
+
+                // -- Logique simplifiée de décompilation --
+                switch (opCode)
+                {
+                    case 0: // READ
+                        if (val < maxDataSize / 4)
+                        {
+                            long oldPos = reader.BaseStream.Position;
+                            reader.BaseStream.Seek(dataBase + val * 4, SeekOrigin.Begin);
+                            uint rawVal = reader.ReadUInt32();
+                            float fVal = BitConverter.ToSingle(BitConverter.GetBytes(rawVal), 0);
+                            reader.BaseStream.Seek(oldPos, SeekOrigin.Begin);
+
+                            // Heuristique simple
+                            object readVal = (fVal > 100000 || fVal < -100000 || Helper.Hashes.ContainsKey(rawVal)) ? rawVal : fVal;
+                            op.DataRead = readVal;
+                            stack.Add(readVal);
+                        }
+                        break;
+                    case 2: // STRING
+                        long sPos = reader.BaseStream.Position;
+                        if (strBase + val < reader.BaseStream.Length)
+                        {
+                            reader.BaseStream.Seek(strBase + val, SeekOrigin.Begin);
+                            string s = reader.ReadZeroTerminatedString();
+                            stack.Add($"\"{s}\"");
+                            reader.BaseStream.Seek(sPos, SeekOrigin.Begin);
+                        }
+                        break;
+                    case 4: // SET
+                        stack.Add(val);
+                        break;
+                    case 0xE: // PTR
+                        dataPointer = val * 4 + 4;
+                        break;
+                    case 0x15: // SHIFT_PTR
+                        dataPointer += val;
+                        break;
+                    case 0x10: // MOV_8 (Store Variable)
+                        if (stack.Count > 0)
+                        {
+                            var v = stack[stack.Count - 1];
+                            if (!func.Variables.ContainsKey(dataPointer))
+                                func.Variables[dataPointer] = new CodeVariable { Offset = dataPointer, Data = v };
+                            sb.AppendLine($"    var_{dataPointer:X} = {v};");
+                            stack.Clear();
+                        }
+                        break;
+                    case 0xC: // END
+                        sb.AppendLine("}");
+                        func.DecompiledCode = sb.ToString();
+                        return;
+                    case 7: // CMD
+                        sb.AppendLine($"    CMD_{val}({string.Join(", ", stack)});");
+                        stack.Clear();
+                        break;
+                    default:
+                        // Extensions
+                        if (new[] { 1, 3, 5, 6, 8, 0x16 }.Contains((int)opCode)) reader.ReadUInt16();
+                        break;
+                }
+            }
+        }
+    }
 }

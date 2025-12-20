@@ -104,6 +104,12 @@ namespace AnarkBrowser
                     fontEditor.Show();
                     break;
 
+                case ScriptChunk script:
+                    // On passe directement l'objet ScriptChunk à l'éditeur
+                    var scriptEditor = new ScriptEditor(script);
+                    scriptEditor.Show();
+                    break;
+
                 default:
                     // Optionnel : gérer le cas où le type n'est pas reconnu
                     MessageBox.Show($"This is a {Enum.GetName(typeof(ChunkType), _selectedChunk.Type)}");
