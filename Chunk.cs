@@ -369,10 +369,11 @@ namespace EvershadeEditor.LM2 {
         }
     }
 
-    // Ajoutez ceci dans Chunk.cs, dans le namespace EvershadeEditor.LM2
+    // Dans Chunk.cs, remplacez toute la classe ScriptChunk par :
+
     public class ScriptChunk : ChunkEntry, IChunkExtension
     {
-        // Structures de données internes pour le Script
+        // --- Structures internes ---
         public class Script
         {
             public uint Hash { get; set; }
@@ -386,8 +387,13 @@ namespace EvershadeEditor.LM2 {
             public uint Hash { get; set; }
             public uint CodeStartIndex { get; set; }
             public uint Flag { get; set; }
+
             public List<Operation> Operations { get; set; } = new List<Operation>();
+
+            // Dictionnaire des variables (Offset -> Info)
             public Dictionary<uint, CodeVariable> Variables { get; set; } = new Dictionary<uint, CodeVariable>();
+
+            // Le code sous forme de texte pour l'affichage
             public string DecompiledCode { get; set; }
         }
 
@@ -396,27 +402,73 @@ namespace EvershadeEditor.LM2 {
             public ushort RawCode;
             public uint OpCode;
             public uint RegValue;
-            public uint RegValueEx;
+            public uint RegValueEx; // Pour les valeurs étendues (U24)
             public object DataRead;
+
+            public override string ToString()
+            {
+                string opName = ((OperationCode)OpCode).ToString();
+                uint val = RegValue;
+                if (OpCode == 1 || OpCode == 3 || OpCode == 8 || OpCode == 0x16)
+                {
+                    val = RegValueEx + RegValue * 0x10000;
+                }
+                return $"   OpCode {opName} Reg {val}";
+            }
         }
 
         public class CodeVariable
         {
-            public uint Offset;
-            public object Data;
-            public string TypeName => Data?.GetType().Name ?? "Unknown";
+            public uint Offset { get; set; }
+            public object Data { get; set; } // Contiendra désormais float[], bool, uint, etc.
+
+            // On personnalise le nom du type pour que l'UI affiche "Matrix" ou "Vector" au lieu de "Single[]"
+            public string TypeName
+            {
+                get
+                {
+                    if (Data is float[] arr)
+                    {
+                        if (arr.Length == 16) return "Matrix4x4";
+                        if (arr.Length == 4) return "Vector4";
+                        if (arr.Length == 3) return "Vector3";
+                        return $"float[{arr.Length}]";
+                    }
+                    return Data?.GetType().Name ?? "Unknown";
+                }
+            }
         }
 
-        // Propriétés du Chunk
+            public enum OperationCode
+        {
+            READ = 0,
+            READ_U24 = 1,
+            STRING_OFFSET = 2,
+            STRING_OFFSETU24 = 3,
+            SET = 4,
+            JUMP = 5,
+            JUMP_6 = 6,
+            CMD = 7,
+            CMD_U24 = 8,
+            NOOP = 0xA,
+            END = 0xC,
+            PTR = 0xE,
+            MOV_8 = 0x10,
+            MOV_4 = 0x11,
+            SHIFT_PTR = 0x15,
+            SHIFT_PTR_U24 = 0x16
+        }
+
+        // --- Propriétés du Chunk ---
         public List<Script> Scripts { get; private set; } = new List<Script>();
         public List<string> Strings { get; private set; } = new List<string>();
         public uint HashType { get; private set; }
+        public string ScriptTypeName { get; private set; } = "Unknown";
 
         public void Read()
         {
             if (Children == null) return;
 
-            // 1. Récupération des chunks enfants
             var headerChunk = Array.Find(Children, c => c.Type == (ushort)ChunkType.ScriptHeader);
             var funcTableChunks = Children.Where(c => c.Type == (ushort)ChunkType.ScriptFunctionTable).ToList();
             var dataChunk = Array.Find(Children, c => c.Type == (ushort)ChunkType.ScriptData);
@@ -426,9 +478,7 @@ namespace EvershadeEditor.LM2 {
             Scripts.Clear();
             Strings.Clear();
 
-            // 2. Parsing du Header
-            using (MemoryStream stream = new MemoryStream(headerChunk.Data))
-            using (BinaryReader reader = new BinaryReader(stream))
+            using (var reader = new BinaryReader(new MemoryStream(headerChunk.Data)))
             {
                 int numScripts = headerChunk.Data.Length / 8;
                 for (int i = 0; i < numScripts; i++)
@@ -441,13 +491,11 @@ namespace EvershadeEditor.LM2 {
                 }
             }
 
-            // 3. Parsing des Tables de Fonctions
             for (int i = 0; i < Scripts.Count; i++)
             {
                 if (i >= funcTableChunks.Count) break;
 
-                using (MemoryStream stream = new MemoryStream(funcTableChunks[i].Data))
-                using (BinaryReader reader = new BinaryReader(stream))
+                using (var reader = new BinaryReader(new MemoryStream(funcTableChunks[i].Data)))
                 {
                     int numFuncs = funcTableChunks[i].Data.Length / 12;
                     for (int j = 0; j < numFuncs; j++)
@@ -459,49 +507,47 @@ namespace EvershadeEditor.LM2 {
                             Flag = reader.ReadUInt32()
                         };
                         func.Name = Helper.GetHashName(func.Hash);
-                        if (string.IsNullOrWhiteSpace(func.Name)) func.Name = $"Func_{func.Hash:X8}";
+                        if (string.IsNullOrWhiteSpace(func.Name) || func.Name == " ")
+                            func.Name = $"Func_{func.Hash:X8}";
                         Scripts[i].Functions.Add(func);
                     }
                 }
             }
 
-            // 4. Parsing Data & Code
             ParseScriptData(dataChunk.Data);
         }
 
         public void Write()
         {
-            // TODO: Implémenter la reconstruction du ScriptData (Repacking)
-            // C'est complexe car il faut recalculer tous les offsets si la taille change.
-            // Pour l'instant, on peut imaginer mettre à jour uniquement les valeurs des variables in-place.
+            // Note: Repacking non implémenté pour éviter la corruption
         }
 
         private void ParseScriptData(byte[] data)
         {
-            using (MemoryStream stream = new MemoryStream(data))
-            using (BinaryReader reader = new BinaryReader(stream))
+            using (var reader = new BinaryReader(new MemoryStream(data)))
             {
                 HashType = reader.ReadUInt32();
+                ScriptTypeName = Helper.GetHashName(HashType);
+                if (ScriptTypeName == " ") ScriptTypeName = HashType.ToString();
+
                 uint codeSize = reader.ReadUInt32();
                 uint dataSize = reader.ReadUInt32();
                 ushort stringTableSize = reader.ReadUInt16();
                 ushort unk = reader.ReadUInt16();
 
-                long dataStartPos = 16; // Header size
+                long dataStartPos = 16;
                 long codeStartPos = dataStartPos + dataSize;
                 long stringStartPos = codeStartPos + codeSize;
 
-                // A. Charger les Strings
-                if (stringStartPos < stream.Length)
+                if (stringStartPos < reader.BaseStream.Length)
                 {
                     reader.BaseStream.Seek(stringStartPos, SeekOrigin.Begin);
-                    while (reader.BaseStream.Position < stream.Length && reader.BaseStream.Position < stringStartPos + stringTableSize)
+                    while (reader.BaseStream.Position < reader.BaseStream.Length && reader.BaseStream.Position < stringStartPos + stringTableSize)
                     {
                         try { Strings.Add(reader.ReadZeroTerminatedString()); } catch { break; }
                     }
                 }
 
-                // B. Analyser les fonctions
                 foreach (var script in Scripts)
                 {
                     foreach (var func in script.Functions)
@@ -516,85 +562,183 @@ namespace EvershadeEditor.LM2 {
         {
             reader.BaseStream.Seek(codeBase + func.CodeStartIndex * 2, SeekOrigin.Begin);
 
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.AppendLine($"// Function: {func.Name} (Flag: {func.Flag:X})");
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine($"{func.Name}()");
             sb.AppendLine("{");
 
-            List<dynamic> stack = new List<dynamic>();
+            List<object> stack = new List<object>();
             uint dataPointer = 0;
 
-            while (true)
+            try
             {
-                if (reader.BaseStream.Position >= reader.BaseStream.Length) break;
-
-                ushort raw = reader.ReadUInt16();
-                uint val = (uint)(raw & 0xffff03ff);
-                uint opCode = (uint)(raw >> 10);
-
-                var op = new Operation { RawCode = raw, OpCode = opCode, RegValue = val };
-                func.Operations.Add(op);
-
-                // -- Logique simplifiée de décompilation --
-                switch (opCode)
+                while (reader.BaseStream.Position < reader.BaseStream.Length)
                 {
-                    case 0: // READ
-                        if (val < maxDataSize / 4)
-                        {
-                            long oldPos = reader.BaseStream.Position;
-                            reader.BaseStream.Seek(dataBase + val * 4, SeekOrigin.Begin);
-                            uint rawVal = reader.ReadUInt32();
-                            float fVal = BitConverter.ToSingle(BitConverter.GetBytes(rawVal), 0);
-                            reader.BaseStream.Seek(oldPos, SeekOrigin.Begin);
+                    ushort raw = reader.ReadUInt16();
+                    uint val = (uint)(raw & 0xffff03ff);
+                    uint opCode = (uint)(raw >> 10);
 
-                            // Heuristique simple
-                            object readVal = (fVal > 100000 || fVal < -100000 || Helper.Hashes.ContainsKey(rawVal)) ? rawVal : fVal;
-                            op.DataRead = readVal;
-                            stack.Add(readVal);
-                        }
-                        break;
-                    case 2: // STRING
-                        long sPos = reader.BaseStream.Position;
-                        if (strBase + val < reader.BaseStream.Length)
-                        {
-                            reader.BaseStream.Seek(strBase + val, SeekOrigin.Begin);
-                            string s = reader.ReadZeroTerminatedString();
-                            stack.Add($"\"{s}\"");
-                            reader.BaseStream.Seek(sPos, SeekOrigin.Begin);
-                        }
-                        break;
-                    case 4: // SET
-                        stack.Add(val);
-                        break;
-                    case 0xE: // PTR
-                        dataPointer = val * 4 + 4;
-                        break;
-                    case 0x15: // SHIFT_PTR
-                        dataPointer += val;
-                        break;
-                    case 0x10: // MOV_8 (Store Variable)
-                        if (stack.Count > 0)
-                        {
-                            var v = stack[stack.Count - 1];
-                            if (!func.Variables.ContainsKey(dataPointer))
-                                func.Variables[dataPointer] = new CodeVariable { Offset = dataPointer, Data = v };
-                            sb.AppendLine($"    var_{dataPointer:X} = {v};");
-                            stack.Clear();
-                        }
-                        break;
-                    case 0xC: // END
-                        sb.AppendLine("}");
-                        func.DecompiledCode = sb.ToString();
-                        return;
-                    case 7: // CMD
-                        sb.AppendLine($"    CMD_{val}({string.Join(", ", stack)});");
-                        stack.Clear();
-                        break;
-                    default:
-                        // Extensions
-                        if (new[] { 1, 3, 5, 6, 8, 0x16 }.Contains((int)opCode)) reader.ReadUInt16();
-                        break;
+                    var op = new Operation { RawCode = raw, OpCode = opCode, RegValue = val };
+
+                    if (new[] { 1, 3, 5, 6, 8, 0x16 }.Contains((int)opCode))
+                        op.RegValueEx = reader.ReadUInt16();
+
+                    func.Operations.Add(op);
+
+                    // Affichage des opcodes bruts (sauf MOV/CMD qui sont gérés en assignation)
+                    if (opCode != (uint)OperationCode.MOV_8 && opCode != (uint)OperationCode.CMD)
+                    {
+                        sb.AppendLine(op.ToString());
+                    }
+
+                    switch (opCode)
+                    {
+                        case 0: // READ
+                        case 1: // READ_U24
+                            uint idx = (opCode == 1) ? op.RegValueEx + val * 0x10000 : val;
+                            if (idx < maxDataSize / 4)
+                            {
+                                object v = ReadDataValue(reader, dataBase, idx);
+                                op.DataRead = v;
+                                stack.Add(v);
+                            }
+                            break;
+
+                        case 2: // STRING
+                        case 3: // STRING_U24
+                            uint sIdx = (opCode == 3) ? op.RegValueEx + val * 0x10000 : val;
+                            stack.Add(ReadStringValue(reader, strBase, sIdx));
+                            break;
+
+                        case 4: // SET
+                            stack.Add(val);
+                            break;
+
+                        case 0xE: // PTR
+                            dataPointer = val * 4 + 4;
+                            break;
+                        case 0x15: // SHIFT_PTR
+                            dataPointer += val;
+                            break;
+                        case 0x16: // SHIFT_PTR_U24
+                            dataPointer += op.RegValueEx + val * 0x10000;
+                            break;
+
+                        case 0x10: // MOV_8
+                            if (stack.Count > 0)
+                            {
+                                var v = stack[stack.Count - 1];
+                                string typePrefix = "byte";
+                                if (val == 2) typePrefix = "short";
+                                else if (val == 4)
+                                {
+                                    typePrefix = (v is uint) ? "hash" : "float";
+                                    if (v is uint u && !Helper.Hashes.ContainsKey(u) && u > 1000) typePrefix = "uint";
+                                }
+
+                                if (!func.Variables.ContainsKey(dataPointer))
+                                    func.Variables[dataPointer] = new CodeVariable { Offset = dataPointer, Data = v };
+
+                                string valDisplay = v.ToString();
+                                if (v is uint uVal)
+                                    valDisplay = Helper.GetHashName(uVal) != " " ? Helper.GetHashName(uVal) : $"0x{uVal:X}";
+
+                                sb.AppendLine($"   {typePrefix} var{dataPointer:X} = {valDisplay}");
+                                stack.Clear();
+                            }
+                            break;
+
+                        case 7: // CMD
+                            HandleCommand(val, stack, func, dataPointer, sb);
+                            break;
+
+                        case 0xC: // END
+                            foreach (var kvp in func.Variables)
+                                sb.AppendLine(kvp.Value.ToString());
+                            sb.AppendLine("}");
+                            func.DecompiledCode = sb.ToString();
+                            return;
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"// ERROR: {ex.Message}");
+                sb.AppendLine("}");
+                func.DecompiledCode = sb.ToString();
+            }
+        }
+
+        private dynamic ReadDataValue(BinaryReader r, long baseAddr, uint idx)
+        {
+            long old = r.BaseStream.Position;
+            r.BaseStream.Seek(baseAddr + idx * 4, SeekOrigin.Begin);
+            uint u = r.ReadUInt32();
+            float f = BitConverter.ToSingle(BitConverter.GetBytes(u), 0);
+            r.BaseStream.Seek(old, SeekOrigin.Begin);
+
+            if (Helper.Hashes.ContainsKey(u)) return u;
+            if (f > 100000 || f < -100000) return u;
+            if (f > -0.0001 && f < 0.0001 && f != 0) return u;
+            return f;
+        }
+
+        private string ReadStringValue(BinaryReader r, long baseAddr, uint offset)
+        {
+            long old = r.BaseStream.Position;
+            if (baseAddr + offset >= r.BaseStream.Length) return "null";
+            r.BaseStream.Seek(baseAddr + offset, SeekOrigin.Begin);
+            string s = r.ReadZeroTerminatedString();
+            r.BaseStream.Seek(old, SeekOrigin.Begin);
+            return $"\"{s}\"";
+        }
+
+        private void HandleCommand(uint cmd, List<dynamic> stack, Function func, uint ptr, StringBuilder sb)
+        {
+            string type = $"CMD_{cmd}";
+            string val = "";
+
+            if (cmd == 824 && stack.Count >= 3) // Vec3
+            {
+                type = "vec3";
+                val = $"Vec3({stack[0]}, {stack[1]}, {stack[2]})";
+                if (!func.Variables.ContainsKey(ptr)) func.Variables[ptr] = new CodeVariable { Offset = ptr, Data = val };
+            }
+            else if (cmd == 821 && stack.Count >= 4) // Vec4
+            {
+                type = "vec4";
+                val = $"Vec4({stack[0]}, {stack[1]}, {stack[2]}, {stack[3]})";
+                if (!func.Variables.ContainsKey(ptr)) func.Variables[ptr] = new CodeVariable { Offset = ptr, Data = val };
+            }
+            else if (cmd == 57 && stack.Count >= 1) // Bool
+            {
+                type = "bool";
+                bool b = (Convert.ToInt32(stack[0]) == 1);
+                val = b ? "true" : "false";
+                if (!func.Variables.ContainsKey(ptr)) func.Variables[ptr] = new CodeVariable { Offset = ptr, Data = b };
+            }
+            // --- AJOUT POUR MATRIX 4x4 (CMD 560) ---
+            else if (cmd == 560 && stack.Count >= 16)
+            {
+                type = "matrix";
+                // On récupère les 16 dernières valeurs du stack
+                var matrixValues = new List<dynamic>();
+                for (int i = 0; i < 16; i++) matrixValues.Add(stack[i]); // Le stack est vidé à la fin donc on prend tout ce qui est là
+
+                // Formatage en string
+                val = $"Matrix4x4({string.Join(", ", matrixValues)})";
+
+                // Enregistrement de la variable
+                if (!func.Variables.ContainsKey(ptr))
+                    func.Variables[ptr] = new CodeVariable { Offset = ptr, Data = val };
+            }
+            // ----------------------------------------
+            else
+            {
+                val = $"({string.Join(", ", stack)})";
+            }
+
+            sb.AppendLine($"   {type} var{ptr:X} = {val}");
+            stack.Clear();
         }
     }
 }

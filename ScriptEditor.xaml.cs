@@ -1,5 +1,4 @@
 ﻿using EvershadeEditor.LM2;
-using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,46 +7,47 @@ namespace AnarkBrowser
 {
     public partial class ScriptEditor : Window
     {
-        private ScriptChunk _scriptChunk;
+        private ScriptChunk _chunk;
 
-        // Constructeur typé
-        public ScriptEditor(ScriptChunk scriptChunk)
+        public ScriptEditor(ScriptChunk chunk)
         {
             InitializeComponent();
-            _scriptChunk = scriptChunk;
+            _chunk = chunk;
 
-            LoadScript();
+            // Afficher le type de script dans le titre
+            this.Title = $"Script Editor - Type: {_chunk.ScriptTypeName} (Hash: {_chunk.HashType:X})";
+
+            LoadData();
         }
 
-        private void LoadScript()
+        private void LoadData()
         {
-            // Plus besoin de parser ici, le Chunk l'a déjà fait !
-            // On bind directement les données du Chunk.
+            // On récupère toutes les fonctions pour les lister
+            var allFunctions = _chunk.Scripts.SelectMany(s => s.Functions).ToList();
+            FunctionList.ItemsSource = allFunctions;
 
-            var allFuncs = _scriptChunk.Scripts.SelectMany(s => s.Functions).ToList();
-            FunctionList.ItemsSource = allFuncs;
-
-            if (allFuncs.Count > 0)
+            if (allFunctions.Count > 0)
                 FunctionList.SelectedIndex = 0;
+            else
+                MessageBox.Show("Aucune fonction trouvée dans ce script.");
         }
 
         private void FunctionList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Attention au namespace interne de ScriptChunk vs celui de l'ancien fichier
             if (FunctionList.SelectedItem is ScriptChunk.Function func)
             {
+                // 1. Afficher le code décompilé
                 CodeView.Text = func.DecompiledCode;
+
+                // 2. Afficher les variables dans la grille
+                // Grâce à la correction { get; set; }, le binding va marcher
                 VarGrid.ItemsSource = func.Variables.Values.ToList();
             }
         }
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
-            // Note: La sauvegarde complète du bytecode est très complexe.
-            // Pour l'instant, on notifie juste que les valeurs en mémoire (dans l'objet C#) sont modifiées.
-            // Pour impacter le binaire, il faudrait réécrire le chunk ScriptData.
-
-            MessageBox.Show("Valeurs mises à jour dans l'objet ScriptFormat.\n(Note: La sérialisation binaire complète requiert une implémentation avancée 'WriteScriptData').", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Les variables ont été modifiées dans l'objet en mémoire.\n\nNote : La réécriture binaire (Repack) de scripts COG complexes n'est pas encore implémentée pour éviter la corruption de données.", "Sauvegarde");
         }
     }
 }
